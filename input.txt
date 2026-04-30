@@ -1,0 +1,44 @@
+?1 genders (male femail else)
+$1& persons(date_of_birth% gender?1* #2country* #4club #5contact*)
+?2 continents (asia europa north_america south_america africa oceania)
+$2 countries(name&20*! continent?2*)
+$3 persons_non_constant (#1ref* name&20* surname&25*)
+$4& Clubs (name&30*!)
+$5 person_contact_data (#1ref* mail_adress&* telefon&~null date_from*% date_to%~null)
+$6 players(#1person*)
+$7 arbiters(#1person*)
+$8 arbiter_qualifications(#7arbiter* #9qualification* data_from*% date_to%~null)
+$9 qualifications(name&20*)
+$10 touraments(#11type* #2country* name&30* #7main_arbiter*)
+$11 chess_type(name&20* time_control_from+ time_control_to+)
+?3 game_result(white black draw)
+?4 game_end_reasons(something)
+?5 pieces(something)
+$12 games(#10tournament* #6white* #6black result?3 reason?4 round_number+*[round_number>0] nullcheck[result is not null || reason is null])
+$13 game_moves(#12game* piece?5*)
+$14 rating (#6player* value+* #11type*)
+$15 rating_history(#6player* value+* #11type* date%*)
+$16 tournament_players(#10tournament* #6player*)
+$17 titles(name&20*)
+
+
+
+
+$40 clear_tournaments_table(name&)
+^40 <#10 #12 #13 #14 #15 #16>
+$41 tables_to_clear_all(name&)
+^40 <#1 #2 #3 #4 #5 #6 #7 #8 #9 #10 #11 #12 #13 #14 #15 #16 #17>
+
+@void clear_t() row&30 {
+for row in select name from #40 {
+EXECUTE format('TRUNCATE TABLE %I CASCADE', row);
+}
+raise notice 'Cleared';
+}
+
+@void clear_all() row&30 {
+for row in select name from #41 {
+EXECUTE format('TRUNCATE TABLE %I CASCADE', row);
+}
+raise notice 'Cleared';
+}
