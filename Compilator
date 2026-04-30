@@ -1,0 +1,548 @@
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <vector>
+#include <map>
+#include <sstream>
+#include <algorithm>
+#include <cctype>
+
+struct Field {
+    std::string name;
+    std::string type;
+    bool isNotNull = false;
+    bool isUnique = false;      
+    std::string checkCond;      
+    std::string defaultVal;     
+    bool isRef = false;
+    std::string refTable;
+};
+
+struct Table {
+    int id;
+    std::string name;
+    std::vector<Field> fields;
+    bool hasDescription = false;
+};
+
+struct EnumType {
+    int id;
+    std::string name;
+    std::vector<std::string> values;
+};
+
+struct Insertion {
+    std::string tableName;
+    std::vector<std::string> targetFields;
+    std::vector<std::string> fieldTypes;
+    std::vector<std::vector<std::string>> rows;
+};
+
+struct Function {
+    std::string retType;
+    std::string name;
+    std::vector<Field> args;
+    std::vector<Field> locals;
+    std::vector<std::string> bodyTokens;
+};
+
+// Ãëîáàëüíûå ñëîâàðè
+std::map<int, std::string> idToName;
+std::map<int, std::string> enumToName;
+
+
+
+std::string formatValue(std::string val, std::string type) {
+    if (type.compare(0,7, "numeric") || type == "integer" || type == "boolean" || type.find("[]") != std::string::npos) return val;
+    return "'" + val + "'";
+}
+
+// Óìíàÿ îáðàáîòêà òåëà ôóíêöèè
+std::string processBody(const std::vector<std::string>& tokens) {
+    std::string result;
+    std::vector<std::string> stack;
+    std::string currentStatementKeyword = "";
+    bool newStatement = true;
+
+    for (size_t i = 0; i < tokens.size(); ++i) {
+        std::string t = tokens[i];
+        std::string t_lower = t;
+        std::transform(t_lower.begin(), t_lower.end(), t_lower.begin(), ::tolower);
+
+        // Èùåì êëþ÷åâîå ñëîâî íà÷àëà ñòåéòìåíòà (if, while, for è ò.ä.)
+        if (newStatement && t != "{" && t != "}") {
+            if (isalpha(t[0])) {
+                currentStatementKeyword = t_lower;
+                newStatement = false;
+            }
+        }
+
+        // Çàìåíû îïåðàòîðîâ
+        if (t == "==") { result += " = "; }
+        else if (t == "!=") { result += " <> "; }
+        else if (t == "&&") { result += " AND "; }
+        else if (t == "||") { result += " OR "; }
+        // Îáðàáîòêà áëîêîâ {}
+        else if (t == "{") {
+            if (currentStatementKeyword == "if") {
+                result += " THEN\n";
+                stack.push_back("IF");
+            }
+            else if (currentStatementKeyword == "while" ||
+                currentStatementKeyword == "for" ||
+                currentStatementKeyword == "foreach") {
+                result += " LOOP\n";
+                stack.push_back("LOOP");
+            }
+            else {
+                result += "\n";
+                stack.push_back("PLAIN");
+            }
+            newStatement = true;
+        }
+        else if (t == "}") {
+            std::string block = stack.empty() ? "" : stack.back();
+            if (!stack.empty()) stack.pop_back();
+
+            if (block == "IF") {
+                result += "\nEND IF;\n";
+            }
+            else if (block == "LOOP") {
+                result += "\nEND LOOP;\n";
+            }
+            else {
+                result += "\n";
+            }
+            newStatement = true;
+        }
+        else if (t == ";") {
+            result += t + "\n";
+            newStatement = true;
+        }
+        else {
+            if (!result.empty() && result.back() != '\n' && result.back() != ' ') result += " ";
+            result += t;
+        }
+    }
+    return result;
+}
+
+std::string processBodyOnString(std::string body) {
+    std::stringstream ss(body);
+    std::vector<std::string> tokens;
+    std::string t;
+    while (ss >> t) {
+        tokens.push_back(t);
+    }
+    return processBody(tokens);
+}
+
+// Óíèâåðñàëüíûé ïàðñåð òèïîâ (äëÿ òàáëèö, àðãóìåíòîâ è ïåðåìåííûõ)
+void parseFullType(std::string token, Field& f) {
+    std::string arraySuffix = "";
+    size_t pos = token.find('[');
+    if (pos != std::string::npos) {
+        size_t endPos = token.find(']', pos);
+        f.checkCond = processBodyOnString(token.substr(pos + 1, endPos - pos - 1));
+        token.erase(pos, endPos - pos + 1);
+    }
+
+    pos = token.find('^');
+    while (pos != std::string::npos) {
+        arraySuffix += "[]";
+        token.erase(pos, 1);
+        pos = token.find('^');
+    }
+
+    while ((pos = token.find('!')) != std::string::npos) {
+        f.isUnique = true;
+        token.erase(pos, 1);
+    }
+
+    while ((pos = token.find('*')) != std::string::npos) {
+        f.isNotNull = true;
+        token.erase(pos, 1);
+    }
+    
+
+    pos = token.find('~');
+    if (pos != std::string::npos) {
+        f.defaultVal = token.substr(pos + 1);
+        token = token.substr(0, pos);
+    }
+
+
+    std::string baseType;
+    // 3. Ññûëêè (#)
+    if (!token.empty() && token[0] == '#') {
+        f.isRef = true;
+        std::string refData = token.substr(1);
+        size_t pos = 0;
+        while (pos < refData.length() && std::isdigit(refData[pos])) pos++;
+
+        if (pos < refData.length()) {
+            f.refTable = idToName[std::stoi(refData.substr(0, pos))];
+            f.name = refData.substr(pos);
+        }
+        else {
+            f.refTable = idToName[std::stoi(refData)];
+            f.name = "ref_" + f.refTable;
+        }
+        baseType = "integer";
+    }
+    // 4. Ýíóìû è Boolean (?)
+    else if (token.find('?') != std::string::npos) {
+        size_t qPos = token.find('?');
+        f.name = token.substr(0, qPos);
+        std::string enumPart = token.substr(qPos + 1);
+        if (enumPart.empty()) {
+            baseType = "boolean";
+        }
+        else {
+            baseType = enumToName[std::stoi(enumPart)];
+        }
+    }
+    else if(token.find('+') != std::string::npos) {
+        size_t plusPos = token.find('+');
+		std::string precPart = token.substr(plusPos + 1);
+        if(precPart.empty()) {
+            baseType = "numeric";
+        }
+        else {
+            size_t secondPlusPos = token.find('+', plusPos+1);
+			precPart = token.substr(plusPos + 1, secondPlusPos - plusPos - 1);
+            std::string scalePart = token.substr(secondPlusPos + 1);
+            if(scalePart.empty()) {
+                baseType = "numeric(" + precPart + ")";
+            }
+            else {
+                baseType = "numeric(" + precPart + ", " + scalePart + ")";
+			} 
+        }
+        f.name = token.substr(0, plusPos);
+	}
+    // 5. Òåêñò (&), Äàòà (%) è ×èñëà
+    else {
+        size_t ampPos = token.find('&');
+        size_t perPos = token.find('%');
+        if (ampPos != std::string::npos) {
+            f.name = token.substr(0, ampPos);
+            std::string size = token.substr(ampPos + 1);
+            baseType = size.empty() ? "text" : "varchar(" + size + ")";
+        }
+        else if (perPos != std::string::npos) {
+            f.name = token.substr(0, perPos);
+            baseType = "date";
+        }
+        else {
+            f.name = token;
+            baseType = "constraint";
+        }
+    }
+    f.type = baseType + arraySuffix;
+}
+
+std::string readFile(const std::string& filename) {
+    std::ifstream file(filename);
+    if (!file.is_open()) return "";
+    std::stringstream buffer;
+    std::string line;
+    while (std::getline(file, line)) buffer << line << " ";
+    return buffer.str();
+}
+
+int main() {
+    std::string input = readFile("input.txt");
+    if (input.empty()) {
+        std::cerr << "Error: input.txt is empty or missing." << std::endl;
+        return 1;
+    }
+
+    // ÓÌÍÀß ÒÎÊÅÍÈÇÀÖÈß: Îòäåëÿåì òîëüêî ñêîáêè. 
+    // Äëÿ < è > ïðîâåðÿåì, íå ÷àñòü ëè ýòî <=, >=, <>
+	int squareBracketLevel = 0;
+    std::string prepared;
+    for (size_t i = 0; i < input.length(); ++i) {
+        char c = input[i];
+        if (c == '[') {
+            squareBracketLevel++;
+            prepared += " "; prepared += c; prepared += " ";
+			continue;
+        }
+        else if (c == ']') {
+            squareBracketLevel--;
+            prepared += " "; prepared += c; prepared += " ";
+            continue;
+        }
+        if(squareBracketLevel > 0) {
+            prepared += c;
+            continue;
+		}
+        if (c == '(' || c == ')' || c == '{' || c == '}') {
+            prepared += " "; prepared += c; prepared += " ";
+        }
+        else if (c == '<' || c == '>') {
+            if (i + 1 < input.length() && (input[i + 1] == '=' || (c == '<' && input[i + 1] == '>'))) {
+                prepared += " "; prepared += c; prepared += input[i + 1]; prepared += " ";
+                i++; // ïðîïóñêàåì ñëåäóþùèé ñèìâîë
+            }
+            else {
+                prepared += " "; prepared += c; prepared += " ";
+            }
+        }
+        else {
+            prepared += c;
+        }
+    }
+
+    std::stringstream ss(prepared);
+    std::vector<std::string> tokens;
+    std::string t;
+    squareBracketLevel = 0;
+    while (ss >> t) {
+        if(t == "[") {
+            squareBracketLevel++;
+            tokens.back() += "[";
+        }
+        else if (t == "]") {
+            squareBracketLevel--;
+            tokens.back() += "]";
+        }
+        else if(squareBracketLevel > 0) {
+            tokens.back() += " " + t; // îáúåäèíÿåì âñå âíóòðè [] â îäèí òîêåí
+        }
+        else {
+            tokens.push_back(t);
+        }
+    }
+
+    std::vector<EnumType> enums;
+    std::map<int, Table> tables;
+    std::vector<Insertion> insertions;
+    std::vector<Function> functions;
+
+    // ØÀÃ 1: Ñîáèðàåì ID òàáëèö è Ýíóìû
+    for (size_t i = 0; i < tokens.size(); ++i) {
+        if (tokens[i][0] == '?') {
+            EnumType e;
+            e.id = std::stoi(tokens[i].substr(1));
+            e.name = tokens[++i];
+            enumToName[e.id] = e.name;
+            i += 2; // ïðîïóñêàåì èìÿ è (
+            while (tokens[i] != ")") e.values.push_back(tokens[i++]);
+            enums.push_back(e);
+        }
+        else if (tokens[i][0] == '$') {
+            int id = (tokens[i].length() > 1) ? std::stoi(tokens[i].substr(1)) : 1;
+            idToName[id] = tokens[i + 1];
+        }
+    }
+
+    // ØÀÃ 2: Ïàðñèì ñòðóêòóðó (Òàáëèöû, Âñòàâêè, Ôóíêöèè)
+    for (size_t i = 0; i < tokens.size(); ++i) {
+        if (tokens[i][0] == '$') { // ÒÀÁËÈÖÛ
+            Table tab;
+			std::string head = tokens[i].substr(1);
+            size_t pos = head.find('&');
+            if (pos != std::string::npos) {
+				tab.hasDescription = true;
+                head.erase(pos, 1);
+            }
+            if (head.length() < 1) {
+				std::cerr << "Error: Table ID is missing in token '" << tokens[i] << "'.\n";
+            }
+            tab.id = std::stoi(head);
+            tab.name = tokens[++i];
+            while (tokens[i] != "(") i++; i++; // ïðîïóñê (
+            while (tokens[i] != ")") {
+                Field f;
+                parseFullType(tokens[i++], f);
+                tab.fields.push_back(f);
+            }
+            tables[tab.id] = tab;
+        }
+        else if (tokens[i][0] == '^') { // ÂÑÒÀÂÊÈ
+            Insertion ins;
+            std::string head = tokens[i].substr(1);
+            bool hasDesc = false;
+            size_t pos = head.find('&');
+            if (pos != std::string::npos) {
+                hasDesc = true;
+                head.erase(pos, 1);
+            }
+            if (head.length() < 1) {
+                std::cerr << "Error: Insertion ID is missing in token '" << tokens[i] << "'.\n";
+            }
+
+            int id = std::stoi(head);
+            Table& target = tables[id];
+            if(hasDesc && !target.hasDescription) {
+                std::cerr << "Error: Insertion '" << tokens[i] << "' expects description field, but target table '" << target.name << "' does not have it.\n";
+                return 1;
+			}
+            ins.tableName = target.name;
+
+            if (tokens[i + 1] == "(") {
+                i += 2;
+                while (tokens[i] != ")") {
+                    std::string fName = tokens[i++];
+                    ins.targetFields.push_back(fName);
+                    for (auto& f : target.fields) {
+                        if (f.name == fName) {
+                            if(f.type == "constraint") {
+                                std::cerr << "Error: Cannot insert into constraint field '" << fName << "' in table '" << target.name << "'.\n";
+                                return 1;
+							}
+                            ins.fieldTypes.push_back(f.type);
+                        }
+                    }
+                }
+                i++;
+            }
+            else {
+                for (auto& f : target.fields) { 
+					if (f.type == "constraint") continue; // ïðîïóñêàåì ïîëÿ-îãðàíè÷åíèÿ ïðè âñòàâêå
+                    ins.targetFields.push_back(f.name); ins.fieldTypes.push_back(f.type); 
+                }
+                if (hasDesc) { ins.targetFields.push_back("description"); ins.fieldTypes.push_back("text"); }
+            }
+
+            while (tokens[i] != "<") i++; i++; // èùåì íà÷àëî çíà÷åíèé <
+            std::vector<std::string> vals;
+            while (tokens[i] != ">") {
+                std::string val = tokens[i++];
+                // Åñëè òîêåí âèäà #1, çàìåíÿåì íà èìÿ òàáëèöû
+                if (val[0] == '#' && val.length() > 1 && std::isdigit(val[1])) {
+                    int refId = std::stoi(val.substr(1));
+                    if (idToName.count(refId)) val = idToName[refId];
+                }
+                vals.push_back(val);
+            }
+
+            int stride = ins.targetFields.size();
+            for (size_t j = 0; j < vals.size(); j += stride) {
+                std::vector<std::string> row;
+                for (int k = 0; k < stride && (j + k) < vals.size(); ++k) {
+                    row.push_back(formatValue(vals[j + k], ins.fieldTypes[k]));
+                }
+                ins.rows.push_back(row);
+            }
+            insertions.push_back(ins);
+        }
+        else if (tokens[i][0] == '@') { // ÔÓÍÊÖÈÈ
+            Function func;
+            func.retType = tokens[i].substr(1);
+            func.name = tokens[++i];
+
+            while (tokens[i] != "(") i++; i++; // ïàðñèì àðãóìåíòû
+            while (tokens[i] != ")") {
+                Field f;
+                parseFullType(tokens[i++], f);
+				if (f.type == "constraint") f.type = "text"; // äëÿ àðãóìåíòîâ áåç òèïà ïî óìîë÷àíèþ ñòàâèì text
+                func.args.push_back(f);
+            }
+            i++;
+
+            // Ïàðñèì ëîêàëüíûå ïåðåìåííûå (äî { )
+            while (tokens[i] != "{") {
+                Field f;
+                parseFullType(tokens[i++], f);
+				if (f.type == "constraint") f.type = "text"; // äëÿ ëîêàëüíûõ ïåðåìåííûõ áåç òèïà ïî óìîë÷àíèþ ñòàâèì text
+                func.locals.push_back( f);
+            }
+
+            // Ñîáèðàåì òîêåíû òåëà (ñ ó÷åòîì âëîæåííîñòè ñêîáîê)
+            int braceCount = 1;
+            i++; // çàõîäèì âíóòðü {
+            while (braceCount > 0 && i < tokens.size()) {
+                if (tokens[i] == "{") braceCount++;
+                else if (tokens[i] == "}") braceCount--;
+
+                if (braceCount > 0) {
+                    std::string t = tokens[i];
+                    if (t[0] == '#' && t.length() > 1 && std::isdigit(t[1])) {
+                        int refId = std::stoi(t.substr(1));
+                        if (idToName.count(refId)) t = idToName[refId];
+                    }
+                    func.bodyTokens.push_back(t);
+                }
+                i++;
+            }
+            i--; // êîððåêòèðóåì èíäåêñ ïîñëå âûõîäà èç öèêëà
+            functions.push_back(func);
+        }
+    }
+
+    // ØÀÃ 3: Çàïèñü ðåçóëüòàòà
+    std::ofstream out("output.txt");
+
+    // 1. Ýíóìû
+    for (auto& e : enums) {
+        out << "DROP TYPE IF EXISTS " << e.name << " CASCADE;\n";
+        out << "CREATE TYPE " << e.name << " AS ENUM (";
+        for (size_t j = 0; j < e.values.size(); ++j)
+            out << "'" << e.values[j] << "'" << (j == e.values.size() - 1 ? "" : ", ");
+        out << ");\n\n";
+    }
+
+    // 2. Òàáëèöû
+    for (auto const& [id, t] : tables) {
+        out << "DROP TABLE IF EXISTS " << t.name << " CASCADE;\n";
+        out << "CREATE TABLE " << t.name << " (\n  id serial PRIMARY KEY";
+		for (auto& f : t.fields) {// ïåðâûì ïðîõîäîì äîáàâëÿåì âñå îáû÷íûå ïîëÿ, ÷òîáû constraint áûëè â êîíöå ñïèñêà ïîëåé
+            if (f.type == "constraint") continue;
+            out << ",\n  " << f.name << " " << f.type;
+            if (f.isNotNull) out << " NOT NULL";
+            if (f.isUnique)  out << " UNIQUE";
+            if (!f.defaultVal.empty()) out << " DEFAULT " << f.defaultVal;
+            if (!f.checkCond.empty())  out << " CHECK (" << f.checkCond << " )";
+            if (f.isRef) out << " REFERENCES " << f.refTable << "(id)";
+        }
+		for (auto& f : t.fields) {// âòîðûì ïðîõîäîì äîáàâëÿåì âñå constraint, ÷òîáû îíè áûëè â êîíöå ñïèñêà ïîëåé
+            if (f.type == "constraint") {
+				out << ",\n  CONSTRAINT " << f.name << " CHECK ( " << f.checkCond << " )";
+            }
+		}
+		if (t.hasDescription)
+            out << ",\n  description text\n);\n\n";
+        else
+			out << "\n);\n\n";
+    }
+
+    // 3. Âñòàâêè (INSERT)
+    for (const auto& ins : insertions) {
+        out << "INSERT INTO " << ins.tableName << " (";
+        for (size_t j = 0; j < ins.targetFields.size(); ++j)
+            out << ins.targetFields[j] << (j == ins.targetFields.size() - 1 ? "" : ", ");
+        out << ") VALUES\n";
+        for (size_t r = 0; r < ins.rows.size(); ++r) {
+            out << "  (";
+            for (size_t c = 0; c < ins.rows[r].size(); ++c)
+                out << ins.rows[r][c] << (c == ins.rows[r].size() - 1 ? "" : ", ");
+            out << (r == ins.rows.size() - 1 ? ");\n" : "),\n");
+        }
+        out << "\n";
+    }
+
+    // 4. Ôóíêöèè
+    for (auto& f : functions) {
+        out << "CREATE OR REPLACE FUNCTION " << f.name << " (";
+        for (size_t j = 0; j < f.args.size(); ++j)
+            out << f.args[j].name << " " << f.args[j].type << (j == f.args.size() - 1 ? "" : ", ");
+        out << ")\nRETURNS " << f.retType << " AS $$\nDECLARE\n";
+
+        for (auto& l : f.locals)
+            out << "  " << l.name << " " << (l.isRef ? l.refTable : l.type) << (l.defaultVal.empty() ? "" : " := " + l.defaultVal) << ";\n";
+
+        out << "BEGIN\n";
+        for (auto& arg : f.args)
+            if (arg.isNotNull) out << "  IF " << arg.name << " IS NULL THEN RAISE EXCEPTION 'Parameter " << arg.name << " can not be NULL'; END IF;\n";
+
+        std::string processedBody = processBody(f.bodyTokens);
+        out << processedBody << "\nEND;\n$$ LANGUAGE plpgsql;\n\n";
+    }
+
+    out.close();
+    std::cout << "Successfully generated SQL to output.txt" << std::endl;
+    return 0;
+}
