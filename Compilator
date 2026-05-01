@@ -46,18 +46,18 @@ struct Function {
     std::vector<std::string> bodyTokens;
 };
 
-// Ãëîáàëüíûå ñëîâàðè
+// Глобальные словари
 std::map<int, std::string> idToName;
 std::map<int, std::string> enumToName;
 
 
 
 std::string formatValue(std::string val, std::string type) {
-    if (type.compare(0,7, "numeric") || type == "integer" || type == "boolean" || type.find("[]") != std::string::npos) return val;
+    if (type.compare(0,7, "numeric")==0 || type == "integer" || type == "boolean" || type.find("[]") != std::string::npos) return val;
     return "'" + val + "'";
 }
 
-// Óìíàÿ îáðàáîòêà òåëà ôóíêöèè
+// Умная обработка тела функции
 std::string processBody(const std::vector<std::string>& tokens) {
     std::string result;
     std::vector<std::string> stack;
@@ -69,7 +69,7 @@ std::string processBody(const std::vector<std::string>& tokens) {
         std::string t_lower = t;
         std::transform(t_lower.begin(), t_lower.end(), t_lower.begin(), ::tolower);
 
-        // Èùåì êëþ÷åâîå ñëîâî íà÷àëà ñòåéòìåíòà (if, while, for è ò.ä.)
+        // Ищем ключевое слово начала стейтмента (if, while, for и т.д.)
         if (newStatement && t != "{" && t != "}") {
             if (isalpha(t[0])) {
                 currentStatementKeyword = t_lower;
@@ -77,12 +77,12 @@ std::string processBody(const std::vector<std::string>& tokens) {
             }
         }
 
-        // Çàìåíû îïåðàòîðîâ
+        // Замены операторов
         if (t == "==") { result += " = "; }
         else if (t == "!=") { result += " <> "; }
         else if (t == "&&") { result += " AND "; }
         else if (t == "||") { result += " OR "; }
-        // Îáðàáîòêà áëîêîâ {}
+        // Обработка блоков {}
         else if (t == "{") {
             if (currentStatementKeyword == "if") {
                 result += " THEN\n";
@@ -137,7 +137,7 @@ std::string processBodyOnString(std::string body) {
     return processBody(tokens);
 }
 
-// Óíèâåðñàëüíûé ïàðñåð òèïîâ (äëÿ òàáëèö, àðãóìåíòîâ è ïåðåìåííûõ)
+// Универсальный парсер типов (для таблиц, аргументов и переменных)
 void parseFullType(std::string token, Field& f) {
     std::string arraySuffix = "";
     size_t pos = token.find('[');
@@ -173,7 +173,7 @@ void parseFullType(std::string token, Field& f) {
 
 
     std::string baseType;
-    // 3. Ññûëêè (#)
+    // 3. Ссылки (#)
     if (!token.empty() && token[0] == '#') {
         f.isRef = true;
         std::string refData = token.substr(1);
@@ -190,7 +190,7 @@ void parseFullType(std::string token, Field& f) {
         }
         baseType = "integer";
     }
-    // 4. Ýíóìû è Boolean (?)
+    // 4. Энумы и Boolean (?)
     else if (token.find('?') != std::string::npos) {
         size_t qPos = token.find('?');
         f.name = token.substr(0, qPos);
@@ -209,19 +209,28 @@ void parseFullType(std::string token, Field& f) {
             baseType = "numeric";
         }
         else {
-            size_t secondPlusPos = token.find('+', plusPos+1);
-			precPart = token.substr(plusPos + 1, secondPlusPos - plusPos - 1);
-            std::string scalePart = token.substr(secondPlusPos + 1);
-            if(scalePart.empty()) {
+            size_t secondPlusPos = token.find('+', plusPos + 1);
+
+            if (secondPlusPos == std::string::npos) {
+                // Второго плюса нет, значит это формат +n
                 baseType = "numeric(" + precPart + ")";
             }
             else {
-                baseType = "numeric(" + precPart + ", " + scalePart + ")";
-			} 
+                // Второй плюс есть, разделяем precision и scale
+                std::string finalPrec = token.substr(plusPos + 1, secondPlusPos - plusPos - 1);
+                std::string scalePart = token.substr(secondPlusPos + 1);
+
+                if (scalePart.empty()) {
+                    baseType = "numeric(" + finalPrec + ")";
+                }
+                else {
+                    baseType = "numeric(" + finalPrec + ", " + scalePart + ")";
+                }
+            }
         }
         f.name = token.substr(0, plusPos);
 	}
-    // 5. Òåêñò (&), Äàòà (%) è ×èñëà
+    // 5. Текст (&), Дата (%) и Числа
     else {
         size_t ampPos = token.find('&');
         size_t perPos = token.find('%');
@@ -258,8 +267,8 @@ int main() {
         return 1;
     }
 
-    // ÓÌÍÀß ÒÎÊÅÍÈÇÀÖÈß: Îòäåëÿåì òîëüêî ñêîáêè. 
-    // Äëÿ < è > ïðîâåðÿåì, íå ÷àñòü ëè ýòî <=, >=, <>
+    // УМНАЯ ТОКЕНИЗАЦИЯ: Отделяем только скобки. 
+    // Для < и > проверяем, не часть ли это <=, >=, <>
 	int squareBracketLevel = 0;
     std::string prepared;
     for (size_t i = 0; i < input.length(); ++i) {
@@ -284,7 +293,7 @@ int main() {
         else if (c == '<' || c == '>') {
             if (i + 1 < input.length() && (input[i + 1] == '=' || (c == '<' && input[i + 1] == '>'))) {
                 prepared += " "; prepared += c; prepared += input[i + 1]; prepared += " ";
-                i++; // ïðîïóñêàåì ñëåäóþùèé ñèìâîë
+                i++; // пропускаем следующий символ
             }
             else {
                 prepared += " "; prepared += c; prepared += " ";
@@ -309,7 +318,7 @@ int main() {
             tokens.back() += "]";
         }
         else if(squareBracketLevel > 0) {
-            tokens.back() += " " + t; // îáúåäèíÿåì âñå âíóòðè [] â îäèí òîêåí
+            tokens.back() += " " + t; // объединяем все внутри [] в один токен
         }
         else {
             tokens.push_back(t);
@@ -321,14 +330,14 @@ int main() {
     std::vector<Insertion> insertions;
     std::vector<Function> functions;
 
-    // ØÀÃ 1: Ñîáèðàåì ID òàáëèö è Ýíóìû
+    // ШАГ 1: Собираем ID таблиц и Энумы
     for (size_t i = 0; i < tokens.size(); ++i) {
         if (tokens[i][0] == '?') {
             EnumType e;
             e.id = std::stoi(tokens[i].substr(1));
             e.name = tokens[++i];
             enumToName[e.id] = e.name;
-            i += 2; // ïðîïóñêàåì èìÿ è (
+            i += 2; // пропускаем имя и (
             while (tokens[i] != ")") e.values.push_back(tokens[i++]);
             enums.push_back(e);
         }
@@ -338,9 +347,9 @@ int main() {
         }
     }
 
-    // ØÀÃ 2: Ïàðñèì ñòðóêòóðó (Òàáëèöû, Âñòàâêè, Ôóíêöèè)
+    // ШАГ 2: Парсим структуру (Таблицы, Вставки, Функции)
     for (size_t i = 0; i < tokens.size(); ++i) {
-        if (tokens[i][0] == '$') { // ÒÀÁËÈÖÛ
+        if (tokens[i][0] == '$') { // ТАБЛИЦЫ
             Table tab;
 			std::string head = tokens[i].substr(1);
             size_t pos = head.find('&');
@@ -353,7 +362,7 @@ int main() {
             }
             tab.id = std::stoi(head);
             tab.name = tokens[++i];
-            while (tokens[i] != "(") i++; i++; // ïðîïóñê (
+            while (tokens[i] != "(") i++; i++; // пропуск (
             while (tokens[i] != ")") {
                 Field f;
                 parseFullType(tokens[i++], f);
@@ -361,7 +370,7 @@ int main() {
             }
             tables[tab.id] = tab;
         }
-        else if (tokens[i][0] == '^') { // ÂÑÒÀÂÊÈ
+        else if (tokens[i][0] == '^') { // ВСТАВКИ
             Insertion ins;
             std::string head = tokens[i].substr(1);
             bool hasDesc = false;
@@ -401,17 +410,17 @@ int main() {
             }
             else {
                 for (auto& f : target.fields) { 
-					if (f.type == "constraint") continue; // ïðîïóñêàåì ïîëÿ-îãðàíè÷åíèÿ ïðè âñòàâêå
+					if (f.type == "constraint") continue; // пропускаем поля-ограничения при вставке
                     ins.targetFields.push_back(f.name); ins.fieldTypes.push_back(f.type); 
                 }
                 if (hasDesc) { ins.targetFields.push_back("description"); ins.fieldTypes.push_back("text"); }
             }
 
-            while (tokens[i] != "<") i++; i++; // èùåì íà÷àëî çíà÷åíèé <
+            while (tokens[i] != "<") i++; i++; // ищем начало значений <
             std::vector<std::string> vals;
             while (tokens[i] != ">") {
                 std::string val = tokens[i++];
-                // Åñëè òîêåí âèäà #1, çàìåíÿåì íà èìÿ òàáëèöû
+                // Если токен вида #1, заменяем на имя таблицы
                 if (val[0] == '#' && val.length() > 1 && std::isdigit(val[1])) {
                     int refId = std::stoi(val.substr(1));
                     if (idToName.count(refId)) val = idToName[refId];
@@ -429,31 +438,31 @@ int main() {
             }
             insertions.push_back(ins);
         }
-        else if (tokens[i][0] == '@') { // ÔÓÍÊÖÈÈ
+        else if (tokens[i][0] == '@') { // ФУНКЦИИ
             Function func;
             func.retType = tokens[i].substr(1);
             func.name = tokens[++i];
 
-            while (tokens[i] != "(") i++; i++; // ïàðñèì àðãóìåíòû
+            while (tokens[i] != "(") i++; i++; // парсим аргументы
             while (tokens[i] != ")") {
                 Field f;
                 parseFullType(tokens[i++], f);
-				if (f.type == "constraint") f.type = "text"; // äëÿ àðãóìåíòîâ áåç òèïà ïî óìîë÷àíèþ ñòàâèì text
+				if (f.type == "constraint") f.type = "text"; // для аргументов без типа по умолчанию ставим text
                 func.args.push_back(f);
             }
             i++;
 
-            // Ïàðñèì ëîêàëüíûå ïåðåìåííûå (äî { )
+            // Парсим локальные переменные (до { )
             while (tokens[i] != "{") {
                 Field f;
                 parseFullType(tokens[i++], f);
-				if (f.type == "constraint") f.type = "text"; // äëÿ ëîêàëüíûõ ïåðåìåííûõ áåç òèïà ïî óìîë÷àíèþ ñòàâèì text
+				if (f.type == "constraint") f.type = "text"; // для локальных переменных без типа по умолчанию ставим text
                 func.locals.push_back( f);
             }
 
-            // Ñîáèðàåì òîêåíû òåëà (ñ ó÷åòîì âëîæåííîñòè ñêîáîê)
+            // Собираем токены тела (с учетом вложенности скобок)
             int braceCount = 1;
-            i++; // çàõîäèì âíóòðü {
+            i++; // заходим внутрь {
             while (braceCount > 0 && i < tokens.size()) {
                 if (tokens[i] == "{") braceCount++;
                 else if (tokens[i] == "}") braceCount--;
@@ -468,15 +477,15 @@ int main() {
                 }
                 i++;
             }
-            i--; // êîððåêòèðóåì èíäåêñ ïîñëå âûõîäà èç öèêëà
+            i--; // корректируем индекс после выхода из цикла
             functions.push_back(func);
         }
     }
 
-    // ØÀÃ 3: Çàïèñü ðåçóëüòàòà
+    // ШАГ 3: Запись результата
     std::ofstream out("output.txt");
 
-    // 1. Ýíóìû
+    // 1. Энумы
     for (auto& e : enums) {
         out << "DROP TYPE IF EXISTS " << e.name << " CASCADE;\n";
         out << "CREATE TYPE " << e.name << " AS ENUM (";
@@ -485,11 +494,11 @@ int main() {
         out << ");\n\n";
     }
 
-    // 2. Òàáëèöû
+    // 2. Таблицы
     for (auto const& [id, t] : tables) {
         out << "DROP TABLE IF EXISTS " << t.name << " CASCADE;\n";
         out << "CREATE TABLE " << t.name << " (\n  id serial PRIMARY KEY";
-		for (auto& f : t.fields) {// ïåðâûì ïðîõîäîì äîáàâëÿåì âñå îáû÷íûå ïîëÿ, ÷òîáû constraint áûëè â êîíöå ñïèñêà ïîëåé
+		for (auto& f : t.fields) {// первым проходом добавляем все обычные поля, чтобы constraint были в конце списка полей
             if (f.type == "constraint") continue;
             out << ",\n  " << f.name << " " << f.type;
             if (f.isNotNull) out << " NOT NULL";
@@ -498,7 +507,7 @@ int main() {
             if (!f.checkCond.empty())  out << " CHECK (" << f.checkCond << " )";
             if (f.isRef) out << " REFERENCES " << f.refTable << "(id)";
         }
-		for (auto& f : t.fields) {// âòîðûì ïðîõîäîì äîáàâëÿåì âñå constraint, ÷òîáû îíè áûëè â êîíöå ñïèñêà ïîëåé
+		for (auto& f : t.fields) {// вторым проходом добавляем все constraint, чтобы они были в конце списка полей
             if (f.type == "constraint") {
 				out << ",\n  CONSTRAINT " << f.name << " CHECK ( " << f.checkCond << " )";
             }
@@ -509,7 +518,7 @@ int main() {
 			out << "\n);\n\n";
     }
 
-    // 3. Âñòàâêè (INSERT)
+    // 3. Вставки (INSERT)
     for (const auto& ins : insertions) {
         out << "INSERT INTO " << ins.tableName << " (";
         for (size_t j = 0; j < ins.targetFields.size(); ++j)
@@ -524,7 +533,7 @@ int main() {
         out << "\n";
     }
 
-    // 4. Ôóíêöèè
+    // 4. Функции
     for (auto& f : functions) {
         out << "CREATE OR REPLACE FUNCTION " << f.name << " (";
         for (size_t j = 0; j < f.args.size(); ++j)
