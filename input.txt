@@ -1,42 +1,115 @@
-?1 genders (male femail else)
-$1& persons(date_of_birth% gender?1* #2country* #4club #5contact*)
-?2 continents (asia europa north_america south_america africa oceania)
+?1 genders (Male Female other not_mentioned)
+$1& persons(date_of_birth% gender?1*~'not_mentioned')
+?2 continents (Asia Europa North_america South_america Africa Oceania other)
 $2 countries(name&20*! continent?2*)
-$3 persons_non_constant (#1ref* name&20* surname&25*)
-$4& Clubs (name&30*!)
-$5 person_contact_data (#1ref* mail_adress&* telefon&~null date_from*% date_to%~null)
+$3 persons_non_constant (#1ref* name&20* surname&25* #2country* #4club~null)
+$4& Clubs (name&50*! #2country~null)
+$5 person_contact_data (#1ref* mail_address&* telephon&~null date_from*% date_to%~null datecheck[date_from < date_to])
 $6 players(#1person*)
 $7 arbiters(#1person*)
-$8 arbiter_qualifications(#7arbiter* #9qualification* data_from*% date_to%~null)
+$8 arbiter_qualifications(#7arbiter* #9qualification~null data_from*% date_to%~null datecheck[date_from < date_to])
 $9 qualifications(name&20*)
-$10 touraments(#11type* #2country* name&30* #7main_arbiter*)
-$11 chess_type(name&20* time_control_from+ time_control_to+)
+$10 tournaments(name&50* #11type* #2country* #7main_arbiter*)
+$11 chess_types(name&30*! time_control_minutes+4 time_control_increment+3 nullcheck[
+(time_control_minutes is not null && time_control_increment is not null)
+||
+(time_control_minutes is null && time_control_increment is null)
+])
 ?3 game_result(white black draw)
-?4 game_end_reasons(something)
-?5 pieces(something)
-$12 games(#10tournament* #6white* #6black result?3 reason?4 round_number+*[round_number>0] nullcheck[result is not null || reason is null])
-$13 game_moves(#12game* piece?5*)
+?4 game_end_reasons(Checkmate Resignation Timeout Forfeiture Stalemate Draw_by_Agreement Insufficient_material Threefold_repetition 50_move_rule 75_move_rule)
+$12 games(#10tournament* #6white* #6black* round_number+*[round_number>0])
+$21 game_endings(#12game*! result?3* reason?4* final_move_string&*)
+$13 game_moves(#12game* #18piece* place_from&2* place_to&2* #18captures~null check?~null)
 $14 rating (#6player* value+* #11type*)
 $15 rating_history(#6player* value+* #11type* date%*)
 $16 tournament_players(#10tournament* #6player*)
-$17 titles(name&20*)
+$17 titles(name&50* short_title&3~null)
+$18 pieces(name&6*! cost+1)
+$19 piece_moves (#18piece* dx+1* dy+1* scalable?*~false)
+$20 players_titles (#6player* #17title~null data_from*% date_to%~null datecheck[date_from < date_to])
 
 
+^2 <
+Poland Europa
+USA North_america
+Germany Europa
+UK Europa
+Australia Oceania
+Ukraine Europa
+Fr*nce Europa
+Spain Europa
+Canada North_america
+Brazil South_america
+Egypt Africa
+Belarus Europa
+China Asia
+Japan Asia
+other other
+>
 
+^9 <FIDE_arbiter>
+
+^11 <
+Bullet_10 1 0
+Bullet_20 2 0
+Bullet_11 1 1
+Bullet_21 2 1
+Blitz_30 3 0
+Blitz_32 3 2
+Blitz_50 5 0
+Blitz_52 5 2
+Rapid_10 10 0
+Rapid_15 10 5
+Rapid_60 15 10
+Standard_60 60 0
+Standard_100 100 0
+>
+
+^18 <
+King null
+Queen 9
+Rook 5
+Bishop 3
+Knight 3
+Pawn 1
+>
+
+^19 (piece dx dy) <
+1 1 0  1 1 1  1 1 -1  1 0 1  1 0 -1  1 -1 0  1 -1 1  1 -1 -1
+5 2 1  5 2 -1 5 -2 1  5 -2 -1  5 1 2  5 -1 2  5 1 -2  5 -1 -2
+6 0 1  6 1 1  6 -1 1  6 0 2
+>
+
+^19 <
+2 1 0 true 2 1 1 true 2 1 -1 true 2 0 1 true 2 0 -1 true 2 -1 0 true 2 -1 1 true 2 -1 -1 true
+3 1 0 true 3 -1 0 true 3 0 1 true 3 0 -1 true
+4 1 1 true 4 1 -1 true 4 -1 -1 true 4 -1 1 true
+>
+
+^17 <
+Grandmaster GM
+International_master IM
+FIDE_Master FM
+FIDE_Candidate_master CM
+Woman_Grandmaster WGM
+Woman_International_master WIM
+Woman_FIDE_Master WFM
+Woman_Candidate_master WCM
+>
 
 $40 clear_tournaments_table(name&)
 ^40 <#10 #12 #13 #14 #15 #16>
-$41 tables_to_clear_all(name&)
-^40 <#1 #2 #3 #4 #5 #6 #7 #8 #9 #10 #11 #12 #13 #14 #15 #16 #17>
+$41 clear_non_static(name&)
+^41 <#1 #3 #4 #5 #6 #7 #8 #10 #12 #13 #14 #15 #16 #20>
 
-@void clear_t() row&30 {
+@void clear_tournaments() row&30 {
 for row in select name from #40 {
 EXECUTE format('TRUNCATE TABLE %I CASCADE', row);
 }
 raise notice 'Cleared';
 }
 
-@void clear_all() row&30 {
+@void clear_non_static() row&30 {
 for row in select name from #41 {
 EXECUTE format('TRUNCATE TABLE %I CASCADE', row);
 }
