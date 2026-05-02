@@ -11,9 +11,9 @@ struct Field {
     std::string name;
     std::string type;
     bool isNotNull = false;
-    bool isUnique = false;      
-    std::string checkCond;      
-    std::string defaultVal;     
+    bool isUnique = false;
+    std::string checkCond;
+    std::string defaultVal;
     bool isRef = false;
     std::string refTable;
 };
@@ -50,10 +50,8 @@ struct Function {
 std::map<int, std::string> idToName;
 std::map<int, std::string> enumToName;
 
-
-
 std::string formatValue(std::string val, std::string type) {
-    if (type.compare(0,7, "numeric")==0 || type == "integer" || type == "boolean" || type.find("[]") != std::string::npos) return val;
+    if (type.compare(0, 7, "numeric") == 0 || type == "integer" || type == "boolean" || type.find("[]") != std::string::npos) return val;
     return "'" + val + "'";
 }
 
@@ -163,14 +161,12 @@ void parseFullType(std::string token, Field& f) {
         f.isNotNull = true;
         token.erase(pos, 1);
     }
-    
 
     pos = token.find('~');
     if (pos != std::string::npos) {
         f.defaultVal = token.substr(pos + 1);
         token = token.substr(0, pos);
     }
-
 
     std::string baseType;
     // 3. Ссылки (#)
@@ -202,10 +198,10 @@ void parseFullType(std::string token, Field& f) {
             baseType = enumToName[std::stoi(enumPart)];
         }
     }
-    else if(token.find('+') != std::string::npos) {
+    else if (token.find('+') != std::string::npos) {
         size_t plusPos = token.find('+');
-		std::string precPart = token.substr(plusPos + 1);
-        if(precPart.empty()) {
+        std::string precPart = token.substr(plusPos + 1);
+        if (precPart.empty()) {
             baseType = "numeric";
         }
         else {
@@ -229,7 +225,7 @@ void parseFullType(std::string token, Field& f) {
             }
         }
         f.name = token.substr(0, plusPos);
-	}
+    }
     // 5. Текст (&), Дата (%) и Числа
     else {
         size_t ampPos = token.find('&');
@@ -269,24 +265,24 @@ int main() {
 
     // УМНАЯ ТОКЕНИЗАЦИЯ: Отделяем только скобки. 
     // Для < и > проверяем, не часть ли это <=, >=, <>
-	int squareBracketLevel = 0;
+    int squareBracketLevel = 0;
     std::string prepared;
     for (size_t i = 0; i < input.length(); ++i) {
         char c = input[i];
         if (c == '[') {
             squareBracketLevel++;
             prepared += " "; prepared += c; prepared += " ";
-			continue;
+            continue;
         }
         else if (c == ']') {
             squareBracketLevel--;
             prepared += " "; prepared += c; prepared += " ";
             continue;
         }
-        if(squareBracketLevel > 0) {
+        if (squareBracketLevel > 0) {
             prepared += c;
             continue;
-		}
+        }
         if (c == '(' || c == ')' || c == '{' || c == '}') {
             prepared += " "; prepared += c; prepared += " ";
         }
@@ -309,7 +305,7 @@ int main() {
     std::string t;
     squareBracketLevel = 0;
     while (ss >> t) {
-        if(t == "[") {
+        if (t == "[") {
             squareBracketLevel++;
             tokens.back() += "[";
         }
@@ -317,7 +313,7 @@ int main() {
             squareBracketLevel--;
             tokens.back() += "]";
         }
-        else if(squareBracketLevel > 0) {
+        else if (squareBracketLevel > 0) {
             tokens.back() += " " + t; // объединяем все внутри [] в один токен
         }
         else {
@@ -351,14 +347,14 @@ int main() {
     for (size_t i = 0; i < tokens.size(); ++i) {
         if (tokens[i][0] == '$') { // ТАБЛИЦЫ
             Table tab;
-			std::string head = tokens[i].substr(1);
+            std::string head = tokens[i].substr(1);
             size_t pos = head.find('&');
             if (pos != std::string::npos) {
-				tab.hasDescription = true;
+                tab.hasDescription = true;
                 head.erase(pos, 1);
             }
             if (head.length() < 1) {
-				std::cerr << "Error: Table ID is missing in token '" << tokens[i] << "'.\n";
+                std::cerr << "Error: Table ID is missing in token '" << tokens[i] << "'.\n";
             }
             tab.id = std::stoi(head);
             tab.name = tokens[++i];
@@ -385,10 +381,10 @@ int main() {
 
             int id = std::stoi(head);
             Table& target = tables[id];
-            if(hasDesc && !target.hasDescription) {
+            if (hasDesc && !target.hasDescription) {
                 std::cerr << "Error: Insertion '" << tokens[i] << "' expects description field, but target table '" << target.name << "' does not have it.\n";
                 return 1;
-			}
+            }
             ins.tableName = target.name;
 
             if (tokens[i + 1] == "(") {
@@ -398,10 +394,10 @@ int main() {
                     ins.targetFields.push_back(fName);
                     for (auto& f : target.fields) {
                         if (f.name == fName) {
-                            if(f.type == "constraint") {
+                            if (f.type == "constraint") {
                                 std::cerr << "Error: Cannot insert into constraint field '" << fName << "' in table '" << target.name << "'.\n";
                                 return 1;
-							}
+                            }
                             ins.fieldTypes.push_back(f.type);
                         }
                     }
@@ -409,9 +405,9 @@ int main() {
                 i++;
             }
             else {
-                for (auto& f : target.fields) { 
-					if (f.type == "constraint") continue; // пропускаем поля-ограничения при вставке
-                    ins.targetFields.push_back(f.name); ins.fieldTypes.push_back(f.type); 
+                for (auto& f : target.fields) {
+                    if (f.type == "constraint") continue; // пропускаем поля-ограничения при вставке
+                    ins.targetFields.push_back(f.name); ins.fieldTypes.push_back(f.type);
                 }
                 if (hasDesc) { ins.targetFields.push_back("description"); ins.fieldTypes.push_back("text"); }
             }
@@ -447,7 +443,7 @@ int main() {
             while (tokens[i] != ")") {
                 Field f;
                 parseFullType(tokens[i++], f);
-				if (f.type == "constraint") f.type = "text"; // для аргументов без типа по умолчанию ставим text
+                if (f.type == "constraint") f.type = "text"; // для аргументов без типа по умолчанию ставим text
                 func.args.push_back(f);
             }
             i++;
@@ -456,8 +452,8 @@ int main() {
             while (tokens[i] != "{") {
                 Field f;
                 parseFullType(tokens[i++], f);
-				if (f.type == "constraint") f.type = "text"; // для локальных переменных без типа по умолчанию ставим text
-                func.locals.push_back( f);
+                if (f.type == "constraint") f.type = "text"; // для локальных переменных без типа по умолчанию ставим text
+                func.locals.push_back(f);
             }
 
             // Собираем токены тела (с учетом вложенности скобок)
@@ -482,6 +478,56 @@ int main() {
         }
     }
 
+    // ШАГ 2.5: Топологическая сортировка таблиц (Kahn's Algorithm)
+    std::vector<Table> sortedTables;
+    std::map<std::string, std::vector<std::string>> adj; // adj[A] = B означает, что B зависит от A (A должно быть создано до B)
+    std::map<std::string, int> inDegree;
+    std::map<std::string, Table*> nameToTable;
+
+    // Инициализируем структуры графа
+    for (auto& pair : tables) {
+        nameToTable[pair.second.name] = &pair.second;
+        inDegree[pair.second.name] = 0;
+    }
+
+    // Строим рёбра графа на основе FK зависимостей
+    for (auto& pair : tables) {
+        Table& t = pair.second;
+        for (auto& f : t.fields) {
+            if (f.isRef && f.refTable != t.name) { // Игнорируем таблицы, ссылающиеся сами на себя
+                if (nameToTable.count(f.refTable)) {
+                    adj[f.refTable].push_back(t.name);
+                    inDegree[t.name]++;
+                }
+            }
+        }
+    }
+
+    std::vector<std::string> readyNodes;
+    for (auto& pair : inDegree) {
+        if (pair.second == 0) readyNodes.push_back(pair.first);
+    }
+
+    while (!readyNodes.empty()) {
+        std::string curr = readyNodes.back();
+        readyNodes.pop_back();
+        sortedTables.push_back(*nameToTable[curr]);
+
+        for (const std::string& neighbor : adj[curr]) {
+            inDegree[neighbor]--;
+            if (inDegree[neighbor] == 0) {
+                readyNodes.push_back(neighbor);
+            }
+        }
+    }
+
+    // Проверка на циклические зависимости
+    if (sortedTables.size() != tables.size()) {
+        std::cerr << "Error: Cyclic table dependency detected! Cannot generate schema." << std::endl;
+        return 1;
+    }
+
+
     // ШАГ 3: Запись результата
     std::ofstream out("output.txt");
 
@@ -494,11 +540,11 @@ int main() {
         out << ");\n\n";
     }
 
-    // 2. Таблицы
-    for (auto const& [id, t] : tables) {
+    // 2. Таблицы (Используем отсортированный массив sortedTables)
+    for (auto const& t : sortedTables) {
         out << "DROP TABLE IF EXISTS " << t.name << " CASCADE;\n";
         out << "CREATE TABLE " << t.name << " (\n  id serial PRIMARY KEY";
-		for (auto& f : t.fields) {// первым проходом добавляем все обычные поля, чтобы constraint были в конце списка полей
+        for (auto& f : t.fields) {// первым проходом добавляем все обычные поля, чтобы constraint были в конце списка полей
             if (f.type == "constraint") continue;
             out << ",\n  " << f.name << " " << f.type;
             if (f.isNotNull) out << " NOT NULL";
@@ -507,15 +553,15 @@ int main() {
             if (!f.checkCond.empty())  out << " CHECK (" << f.checkCond << " )";
             if (f.isRef) out << " REFERENCES " << f.refTable << "(id)";
         }
-		for (auto& f : t.fields) {// вторым проходом добавляем все constraint, чтобы они были в конце списка полей
+        for (auto& f : t.fields) {// вторым проходом добавляем все constraint, чтобы они были в конце списка полей
             if (f.type == "constraint") {
-				out << ",\n  CONSTRAINT " << f.name << " CHECK ( " << f.checkCond << " )";
+                out << ",\n  CONSTRAINT " << f.name << " CHECK ( " << f.checkCond << " )";
             }
-		}
-		if (t.hasDescription)
+        }
+        if (t.hasDescription)
             out << ",\n  description text\n);\n\n";
         else
-			out << "\n);\n\n";
+            out << "\n);\n\n";
     }
 
     // 3. Вставки (INSERT)
