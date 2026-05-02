@@ -10,145 +10,17 @@ CREATE TYPE game_result AS ENUM ('white', 'black', 'draw');
 DROP TYPE IF EXISTS game_end_reasons CASCADE;
 CREATE TYPE game_end_reasons AS ENUM ('Checkmate', 'Resignation', 'Timeout', 'Forfeiture', 'Stalemate', 'Draw_by_Agreement', 'Insufficient_material', 'Threefold_repetition', '50_move_rule', '75_move_rule');
 
-DROP TABLE IF EXISTS persons CASCADE;
-CREATE TABLE persons (
+DROP TABLE IF EXISTS titles CASCADE;
+CREATE TABLE titles (
   id serial PRIMARY KEY,
-  date_of_birth date,
-  gender genders NOT NULL DEFAULT 'not_mentioned',
-  description text
-);
-
-DROP TABLE IF EXISTS countries CASCADE;
-CREATE TABLE countries (
-  id serial PRIMARY KEY,
-  name varchar(20) NOT NULL UNIQUE,
-  continent continents NOT NULL
-);
-
-DROP TABLE IF EXISTS persons_non_constant CASCADE;
-CREATE TABLE persons_non_constant (
-  id serial PRIMARY KEY,
-  ref integer NOT NULL REFERENCES persons(id),
-  name varchar(20) NOT NULL,
-  surname varchar(25) NOT NULL,
-  country integer NOT NULL REFERENCES countries(id),
-  club integer DEFAULT null REFERENCES Clubs(id)
-);
-
-DROP TABLE IF EXISTS Clubs CASCADE;
-CREATE TABLE Clubs (
-  id serial PRIMARY KEY,
-  name varchar(50) NOT NULL UNIQUE,
-  country integer DEFAULT null REFERENCES countries(id),
-  description text
-);
-
-DROP TABLE IF EXISTS person_contact_data CASCADE;
-CREATE TABLE person_contact_data (
-  id serial PRIMARY KEY,
-  ref integer NOT NULL REFERENCES persons(id),
-  mail_address text NOT NULL,
-  telephon text DEFAULT null,
-  date_from date NOT NULL,
-  date_to date DEFAULT null,
-  CONSTRAINT datecheck CHECK ( date_from < date_to )
-);
-
-DROP TABLE IF EXISTS players CASCADE;
-CREATE TABLE players (
-  id serial PRIMARY KEY,
-  person integer NOT NULL REFERENCES persons(id)
-);
-
-DROP TABLE IF EXISTS arbiters CASCADE;
-CREATE TABLE arbiters (
-  id serial PRIMARY KEY,
-  person integer NOT NULL REFERENCES persons(id)
-);
-
-DROP TABLE IF EXISTS arbiter_qualifications CASCADE;
-CREATE TABLE arbiter_qualifications (
-  id serial PRIMARY KEY,
-  arbiter integer NOT NULL REFERENCES arbiters(id),
-  qualification integer DEFAULT null REFERENCES qualifications(id),
-  data_from date NOT NULL,
-  date_to date DEFAULT null,
-  CONSTRAINT datecheck CHECK ( date_from < date_to )
+  name varchar(50) NOT NULL,
+  short_title varchar(3) DEFAULT null
 );
 
 DROP TABLE IF EXISTS qualifications CASCADE;
 CREATE TABLE qualifications (
   id serial PRIMARY KEY,
   name varchar(20) NOT NULL
-);
-
-DROP TABLE IF EXISTS tournaments CASCADE;
-CREATE TABLE tournaments (
-  id serial PRIMARY KEY,
-  name varchar(50) NOT NULL,
-  type integer NOT NULL REFERENCES chess_types(id),
-  country integer NOT NULL REFERENCES countries(id),
-  main_arbiter integer NOT NULL REFERENCES arbiters(id)
-);
-
-DROP TABLE IF EXISTS chess_types CASCADE;
-CREATE TABLE chess_types (
-  id serial PRIMARY KEY,
-  name varchar(30) NOT NULL UNIQUE,
-  time_control_minutes numeric(4),
-  time_control_increment numeric(3),
-  CONSTRAINT nullcheck CHECK ( (time_control_minutes is not null AND time_control_increment is not null) OR (time_control_minutes is null AND time_control_increment is null) )
-);
-
-DROP TABLE IF EXISTS games CASCADE;
-CREATE TABLE games (
-  id serial PRIMARY KEY,
-  tournament integer NOT NULL REFERENCES tournaments(id),
-  white integer NOT NULL REFERENCES players(id),
-  black integer NOT NULL REFERENCES players(id),
-  round_number numeric NOT NULL CHECK (round_number>0 )
-);
-
-DROP TABLE IF EXISTS game_moves CASCADE;
-CREATE TABLE game_moves (
-  id serial PRIMARY KEY,
-  game integer NOT NULL REFERENCES games(id),
-  piece integer NOT NULL REFERENCES pieces(id),
-  place_from varchar(2) NOT NULL,
-  place_to varchar(2) NOT NULL,
-  captures integer DEFAULT null REFERENCES pieces(id),
-  check boolean DEFAULT null
-);
-
-DROP TABLE IF EXISTS rating CASCADE;
-CREATE TABLE rating (
-  id serial PRIMARY KEY,
-  player integer NOT NULL REFERENCES players(id),
-  value numeric NOT NULL,
-  type integer NOT NULL REFERENCES chess_types(id)
-);
-
-DROP TABLE IF EXISTS rating_history CASCADE;
-CREATE TABLE rating_history (
-  id serial PRIMARY KEY,
-  player integer NOT NULL REFERENCES players(id),
-  value numeric NOT NULL,
-  type integer NOT NULL REFERENCES chess_types(id),
-  date date NOT NULL
-);
-
-DROP TABLE IF EXISTS tournament_players CASCADE;
-CREATE TABLE tournament_players (
-  id serial PRIMARY KEY,
-  tournament integer NOT NULL REFERENCES tournaments(id),
-  player integer NOT NULL REFERENCES players(id)
-);
-
-DROP TABLE IF EXISTS titles CASCADE;
-CREATE TABLE titles (
-  id serial PRIMARY KEY,
-  name varchar(50) NOT NULL,
-  short_title varchar(3) DEFAULT null
 );
 
 DROP TABLE IF EXISTS pieces CASCADE;
@@ -167,23 +39,80 @@ CREATE TABLE piece_moves (
   scalable boolean NOT NULL DEFAULT false
 );
 
+DROP TABLE IF EXISTS persons CASCADE;
+CREATE TABLE persons (
+  id serial PRIMARY KEY,
+  date_of_birth date,
+  gender genders NOT NULL DEFAULT 'not_mentioned',
+  description text
+);
+
+DROP TABLE IF EXISTS arbiters CASCADE;
+CREATE TABLE arbiters (
+  id serial PRIMARY KEY,
+  person integer NOT NULL REFERENCES persons(id)
+);
+
+DROP TABLE IF EXISTS arbiter_qualifications CASCADE;
+CREATE TABLE arbiter_qualifications (
+  id serial PRIMARY KEY,
+  arbiter integer NOT NULL REFERENCES arbiters(id),
+  qualification integer DEFAULT null REFERENCES qualifications(id),
+  date_from date NOT NULL,
+  date_to date DEFAULT null,
+  CONSTRAINT datecheck CHECK ( date_from < date_to )
+);
+
+DROP TABLE IF EXISTS players CASCADE;
+CREATE TABLE players (
+  id serial PRIMARY KEY,
+  person integer NOT NULL REFERENCES persons(id)
+);
+
 DROP TABLE IF EXISTS players_titles CASCADE;
 CREATE TABLE players_titles (
   id serial PRIMARY KEY,
   player integer NOT NULL REFERENCES players(id),
   title integer DEFAULT null REFERENCES titles(id),
-  data_from date NOT NULL,
+  date_from date NOT NULL,
   date_to date DEFAULT null,
   CONSTRAINT datecheck CHECK ( date_from < date_to )
 );
 
-DROP TABLE IF EXISTS game_endings CASCADE;
-CREATE TABLE game_endings (
+DROP TABLE IF EXISTS person_contact_data CASCADE;
+CREATE TABLE person_contact_data (
   id serial PRIMARY KEY,
-  game integer NOT NULL UNIQUE REFERENCES games(id),
-  result game_result NOT NULL,
-  reason game_end_reasons NOT NULL,
-  final_move_string text NOT NULL
+  ref integer NOT NULL REFERENCES persons(id),
+  mail_address text NOT NULL,
+  telephon text DEFAULT null,
+  date_from date NOT NULL,
+  date_to date DEFAULT null,
+  CONSTRAINT datecheck CHECK ( date_from < date_to )
+);
+
+DROP TABLE IF EXISTS countries CASCADE;
+CREATE TABLE countries (
+  id serial PRIMARY KEY,
+  name varchar(20) NOT NULL UNIQUE,
+  continent continents NOT NULL
+);
+
+DROP TABLE IF EXISTS Clubs CASCADE;
+CREATE TABLE Clubs (
+  id serial PRIMARY KEY,
+  name varchar(50) NOT NULL UNIQUE,
+  country integer DEFAULT null REFERENCES countries(id),
+  description text
+);
+
+DROP TABLE IF EXISTS persons_non_constant CASCADE;
+CREATE TABLE persons_non_constant (
+  id serial PRIMARY KEY,
+  ref integer NOT NULL REFERENCES persons(id),
+  name varchar(20) NOT NULL,
+  surname varchar(25) NOT NULL,
+  country integer NOT NULL REFERENCES countries(id),
+  club integer DEFAULT null REFERENCES Clubs(id)
 );
 
 DROP TABLE IF EXISTS clear_tournaments_table CASCADE;
@@ -196,6 +125,77 @@ DROP TABLE IF EXISTS clear_non_static CASCADE;
 CREATE TABLE clear_non_static (
   id serial PRIMARY KEY,
   name text
+);
+
+DROP TABLE IF EXISTS chess_types CASCADE;
+CREATE TABLE chess_types (
+  id serial PRIMARY KEY,
+  name varchar(30) NOT NULL UNIQUE,
+  time_control_minutes numeric(4),
+  time_control_increment numeric(3),
+  CONSTRAINT nullcheck CHECK ( (time_control_minutes is not null AND time_control_increment is not null) OR (time_control_minutes is null AND time_control_increment is null) )
+);
+
+DROP TABLE IF EXISTS rating_history CASCADE;
+CREATE TABLE rating_history (
+  id serial PRIMARY KEY,
+  player integer NOT NULL REFERENCES players(id),
+  value numeric NOT NULL,
+  type integer NOT NULL REFERENCES chess_types(id),
+  date date NOT NULL
+);
+
+DROP TABLE IF EXISTS rating CASCADE;
+CREATE TABLE rating (
+  id serial PRIMARY KEY,
+  player integer NOT NULL REFERENCES players(id),
+  value numeric NOT NULL,
+  type integer NOT NULL REFERENCES chess_types(id)
+);
+
+DROP TABLE IF EXISTS tournaments CASCADE;
+CREATE TABLE tournaments (
+  id serial PRIMARY KEY,
+  name varchar(50) NOT NULL,
+  type integer NOT NULL REFERENCES chess_types(id),
+  country integer NOT NULL REFERENCES countries(id),
+  main_arbiter integer NOT NULL REFERENCES arbiters(id)
+);
+
+DROP TABLE IF EXISTS tournament_players CASCADE;
+CREATE TABLE tournament_players (
+  id serial PRIMARY KEY,
+  tournament integer NOT NULL REFERENCES tournaments(id),
+  player integer NOT NULL REFERENCES players(id)
+);
+
+DROP TABLE IF EXISTS games CASCADE;
+CREATE TABLE games (
+  id serial PRIMARY KEY,
+  tournament integer NOT NULL REFERENCES tournaments(id),
+  white integer NOT NULL REFERENCES players(id),
+  black integer NOT NULL REFERENCES players(id),
+  round_number numeric NOT NULL CHECK (round_number>0 )
+);
+
+DROP TABLE IF EXISTS game_endings CASCADE;
+CREATE TABLE game_endings (
+  id serial PRIMARY KEY,
+  game integer NOT NULL UNIQUE REFERENCES games(id),
+  result game_result NOT NULL,
+  reason game_end_reasons NOT NULL,
+  final_move_string text NOT NULL
+);
+
+DROP TABLE IF EXISTS game_moves CASCADE;
+CREATE TABLE game_moves (
+  id serial PRIMARY KEY,
+  game integer NOT NULL REFERENCES games(id),
+  piece integer NOT NULL REFERENCES pieces(id),
+  place_from varchar(2) NOT NULL,
+  place_to varchar(2) NOT NULL,
+  captures integer DEFAULT null REFERENCES pieces(id),
+  "check" boolean DEFAULT null
 );
 
 INSERT INTO countries (name, continent) VALUES
