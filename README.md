@@ -1,4 +1,4 @@
 # ID_Project
-Chess DB.
+A database for the purposes of an international chess federation.
 
-I found the scheme drawer. https://azimutt.app/
+Png's created by azimutt.app
