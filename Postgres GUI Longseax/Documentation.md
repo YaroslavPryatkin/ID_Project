@@ -1,8 +1,8 @@
-\# Config File Syntax (config.conf)
+# Config File Syntax (config.conf)
 
 
 
-\## Database Connection Parameters
+## Database Connection Parameters
 
 
 
@@ -20,13 +20,13 @@ password: postgres
 
 
 
-\- \*\*url\*\*: PostgreSQL host and port (format: `host:port`)
+- **url**: PostgreSQL host and port (format: `host:port`)
 
-\- \*\*database\*\*: database name
+- **database**: database name
 
-\- \*\*user\*\*: PostgreSQL username
+- **user**: PostgreSQL username
 
-\- \*\*password\*\*: PostgreSQL password
+- **password**: PostgreSQL password
 
 
 
@@ -34,7 +34,7 @@ An application itself may also change this fields.
 
 
 
-\## Function Screens
+## Function Screens
 
 
 
@@ -50,23 +50,23 @@ screen: remove\_functions #A75D5D Removing data
 
 
 
-\*\*Format:\*\* `screen: prefix color display\_name`
+**Format:** `screen: prefix color display\_name`
 
 
 
-\- \*\*prefix\*\*: prefix of database functions associated with this screen
+- **prefix**: prefix of database functions associated with this screen
 
 &#x20; - The application automatically finds all functions in the database that start with this prefix
 
 &#x20; - All matching functions are grouped together on one screen
 
-\- \*\*color\*\*: screen color in hex format (e.g., `#4F709C`)
+- **color**: screen color in hex format (e.g., `#4F709C`)
 
-\- \*\*display\_name\*\*: screen name displayed in the UI (can contain multiple words)
+- **display\_name**: screen name displayed in the UI (can contain multiple words)
 
 
 
-\*\*Example database functions for prefix `read\_functions`:\*\*
+**Example database functions for prefix `read\_functions`:**
 
 ```sql
 
@@ -78,7 +78,7 @@ read\_functions\_products\_by\_category(category\_id)
 
 
 
-\## Function Mapping and Renaming
+## Function Mapping and Renaming
 
 
 
@@ -92,19 +92,19 @@ fun: products\_by\_category Show all products from the specified category (Id of
 
 
 
-\*\*Format:\*\* `fun: sqlName guiName \[(alias1, alias2, ...)]`
+**Format:** `fun: sqlName guiName \[(alias1, alias2, ...)]`
 
 
 
-\- \*\*sqlName\*\*: function name in the database (without the prefix)
+- **sqlName\*\*: function name in the database (without the prefix)
 
-\- \*\*guiName\*\*: how the function is displayed in the UI (can contain multiple words)
+- **guiName\*\*: how the function is displayed in the UI (can contain multiple words)
 
-\- \*\*\[(alias1, alias2, ...)]\*\* \*(optional)\*: parameter names displayed in the UI, in the order they appear in the function signature
+- **\[(alias1, alias2, ...)]** *(optional)*: parameter names displayed in the UI, in the order they appear in the function signature
 
 
 
-\*\*Example with aliases:\*\*
+**Example with aliases:**
 
 ```
 
@@ -116,7 +116,7 @@ The first parameter of `get\_user\_data` will be displayed as "User ID" in the i
 
 
 
-\*\*Example with multiple aliases:\*\*
+**Example with multiple aliases:**
 
 ```
 
@@ -126,7 +126,7 @@ fun: insert\_product Add Product (Product Name, Price, Category)
 
 
 
-\## Special Prefix: noout
+## Special Prefix: noout
 
 
 
@@ -134,7 +134,7 @@ For functions that should not display output (e.g., INSERT, UPDATE, DELETE opera
 
 
 
-\*\*Database function naming:\*\* `prefix\_noout\_function\_name`
+**Database function naming:** `prefix\_noout\_function\_name`
 
 
 
@@ -168,11 +168,11 @@ When a function follows the pattern `prefix\_noout\_name`, its return value will
 
 
 
-\## Comments and Formatting
+## Comments and Formatting
 
 
 
-\- Lines starting with `#` at the beginning are treated as comments and ignored:
+- Lines starting with `#` at the beginning are treated as comments and ignored:
 
 
 
@@ -186,23 +186,23 @@ screen: read\_functions #4F709C Reading data
 
 
 
-\- Empty lines are ignored
+- Empty lines are ignored
 
-\- `#` in the middle of a line (after a value) is treated as a literal character, \*\*not\*\* a comment marker
-
-
-
-\## Processing Order
+- `#` in the middle of a line (after a value) is treated as a literal character, \*\*not\*\* a comment marker
 
 
 
-\- `fun:` entries apply to the most recently defined `screen:`
-
-\- Screens appear in the UI in the order they are defined in the config file
+## Processing Order
 
 
 
-\## Complete Example
+- `fun:` entries apply to the most recently defined `screen:`
+
+- Screens appear in the UI in the order they are defined in the config file
+
+
+
+## Complete Example
 
 
 
