@@ -150,15 +150,15 @@ remove\_functions\_noout\_delete\_product(product\_id)
 
 
 
-In the config file, these functions are specified without both prefixes:
+In the config file, these functions are specified **with** noout_ prefix
 
 
 
 ```
 
-fun: add\_category Add Category (Category Name)
+fun: noout\_add\_category Add Category (Category Name)
 
-fun: delete\_product Delete Product (Product ID)
+fun: noout\_delete\_product Delete Product (Product ID)
 
 ```
 
