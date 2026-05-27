@@ -40,11 +40,11 @@ An application itself may also change this fields.
 
 ```
 
-screen: read\_functions #4F709C Reading data
+screen: read_functions #4F709C Reading data
 
-screen: insert\_functions #5F8D4E Inserting new data
+screen: insert_functions #5F8D4E Inserting new data
 
-screen: remove\_functions #A75D5D Removing data
+screen: remove_functions #A75D5D Removing data
 
 ```
 
@@ -66,13 +66,13 @@ screen: remove\_functions #A75D5D Removing data
 
 
 
-**Example database functions for prefix `read\_functions`:**
+**Example database functions for prefix `read_functions`:**
 
 ```sql
 
-read\_functions\_all\_categories()
+read_functions_all_categories()
 
-read\_functions\_products\_by\_category(category\_id)
+read_functions_products_by_category(category_id)
 
 ```
 
@@ -84,15 +84,15 @@ read\_functions\_products\_by\_category(category\_id)
 
 ```
 
-fun: all\_categories Show all categories
+fun: all_categories Show all categories
 
-fun: products\_by\_category Show all products from the specified category (Id of the category)
+fun: products_by_category Show all products from the specified category (Id of the category)
 
 ```
 
 
 
-**Format:** `fun: sqlName guiName \[(alias1, alias2, ...)]`
+**Format:** `fun: sqlName guiName [(alias1, alias2, ...)]`
 
 
 
@@ -108,11 +108,11 @@ fun: products\_by\_category Show all products from the specified category (Id of
 
 ```
 
-fun: get\_user\_data Get User Info (User ID)
+fun: get_user_data Get User Info (User ID)
 
 ```
 
-The first parameter of `get\_user\_data` will be displayed as "User ID" in the interface.
+The first parameter of `get_user_data` will be displayed as "User ID" in the interface.
 
 
 
@@ -120,7 +120,7 @@ The first parameter of `get\_user\_data` will be displayed as "User ID" in the i
 
 ```
 
-fun: insert\_product Add Product (Product Name, Price, Category)
+fun: insert_product Add Product (Product Name, Price, Category)
 
 ```
 
@@ -134,7 +134,7 @@ For functions that should not display output (e.g., INSERT, UPDATE, DELETE opera
 
 
 
-**Database function naming:** `prefix\_noout\_function\_name`
+**Database function naming:** `prefix_noout_function_name`
 
 
 
@@ -142,9 +142,9 @@ Example:
 
 ```sql
 
-insert\_functions\_noout\_add\_category(name)
+insert_functions_noout_add_category(name)
 
-remove\_functions\_noout\_delete\_product(product\_id)
+remove_functions_noout_delete_product(product_id)
 
 ```
 
@@ -156,15 +156,15 @@ In the config file, these functions are specified **with** noout_ prefix
 
 ```
 
-fun: noout\_add\_category Add Category (Category Name)
+fun: noout_add_category Add Category (Category Name)
 
-fun: noout\_delete\_product Delete Product (Product ID)
+fun: noout_delete_product Delete Product (Product ID)
 
 ```
 
 
 
-When a function follows the pattern `prefix\_noout\_name`, its return value will not be displayed in the UI.
+When a function follows the pattern `prefix_noout_name`, its return value will not be displayed in the UI.
 
 
 
@@ -178,9 +178,9 @@ When a function follows the pattern `prefix\_noout\_name`, its return value will
 
 ```
 
-\# This is a comment
+# This is a comment
 
-screen: read\_functions #4F709C Reading data
+screen: read_functions #4F709C Reading data
 
 ```
 
@@ -208,7 +208,7 @@ screen: read\_functions #4F709C Reading data
 
 ```
 
-\# Database Connection
+# Database Connection
 
 url: localhost:5432
 
@@ -220,19 +220,19 @@ password: postgres
 
 
 
-\# Function screens
+# Function screens
 
-screen: read\_functions #4F709C Reading data
+screen: read_functions #4F709C Reading data
 
-fun: all\_categories Show all categories
+fun: all_categories Show all categories
 
-fun: products\_by\_category Show all products from the specified category (Id of the category)
+fun: products_by_category Show all products from the specified category (Id of the category)
 
 
 
-screen: insert\_functions #5F8D4E Inserting new data
+screen: insert_functions #5F8D4E Inserting new data
 
-fun: insert\_product Add Product (Name of the product, Price, Id of the category)
+fun: insert_product Add Product (Name of the product, Price, Id of the category)
 
 
 
