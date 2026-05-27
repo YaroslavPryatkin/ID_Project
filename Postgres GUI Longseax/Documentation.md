@@ -50,7 +50,7 @@ screen: remove_functions #A75D5D Removing data
 
 
 
-**Format:** `screen: prefix color display\_name`
+**Format:** `screen: prefix color display_name`
 
 
 
@@ -96,11 +96,11 @@ fun: products_by_category Show all products from the specified category (Id of t
 
 
 
-- **sqlName\*\*: function name in the database (without the prefix)
+- **sqlName**: function name in the database (without the prefix)
 
-- **guiName\*\*: how the function is displayed in the UI (can contain multiple words)
+- **guiName**: how the function is displayed in the UI (can contain multiple words)
 
-- **\[(alias1, alias2, ...)]** *(optional)*: parameter names displayed in the UI, in the order they appear in the function signature
+- **[(alias1, alias2, ...)]** *(optional)*: parameter names displayed in the UI, in the order they appear in the function signature
 
 
 
