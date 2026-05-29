@@ -14,3 +14,10 @@ DROP TABLE IF EXISTS "countries"           CASCADE;
 
 DROP TYPE  IF EXISTS GENDER    CASCADE;
 DROP TYPE  IF EXISTS CONTINENT CASCADE;
+
+DROP FUNCTION IF EXISTS FIDE_scoring_probability;
+
+DROP FUNCTION IF EXISTS FIDE_rating_change;
+
+DROP FUNCTION IF EXISTS update_ratings_after_game_insert;
+DROP TRIGGER IF EXISTS update_ratings_after_game_insert ON games;
