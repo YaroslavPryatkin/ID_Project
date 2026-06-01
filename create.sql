@@ -54,7 +54,20 @@ CREATE TABLE "chess_type"(
     "chess_type_id" SERIAL PRIMARY KEY,
     "name" VARCHAR(64) NOT NULL,
     "total_time_from" INTERVAL,
-    "total_time_to" INTERVAL
+    "total_time_to" INTERVAL,
+    --
+    "rating_policy" VARCHAR(32) NOT NULL DEFAULT 'unrated',
+    "k_factor" INTEGER,
+
+    CONSTRAINT k_factor_required_for_flat
+        CHECK ( rating_policy <> 'flat' OR k_factor IS NOT NULL ),
+
+    CONSTRAINT k_factor_positive
+        CHECK ( k_factor IS NULL OR k_factor > 0)
+    -- how K-factor is calculated.
+    -- I wasn't sure how to implement K-factors and if this should be an enum or not.
+    -- I used some help from and LLM to make a decision on what to do, and after
+    -- that I decided that this rating_policy field is the best idea.
 );
 
 CREATE TABLE "games"(
@@ -62,7 +75,8 @@ CREATE TABLE "games"(
     "tournament_id" INTEGER NOT NULL,
     "white_player_id" INTEGER NOT NULL,
     "black_player_id" INTEGER NOT NULL,
-    "result" NUMERIC(2, 1), 
+    "result" NUMERIC(2, 1),
+    "date" DATE NOT NULL, --start date
     "round_number" INTEGER NOT NULL,
     "pgn" TEXT NULL
     CHECK ("result" IS NULL or 
@@ -179,7 +193,7 @@ ALTER TABLE
 ALTER TABLE
     "arbiters" ADD CONSTRAINT "arbiters_person_id_foreign" FOREIGN KEY("person_id") REFERENCES "persons"("person_id");
 
-CREATE VIEW "persons_readable" AS ( 
+CREATE VIEW "persons_readable" AS (
   SELECT
   "first_name" AS "First name",
   "last_name" AS "Last name",
@@ -264,11 +278,51 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION get_K_factor(player_id INTEGER, chess_type_id INTEGER) RETURNS INTEGER
+CREATE OR REPLACE FUNCTION get_K_factor(player_id INTEGER, chess_type_id INTEGER, date_played DATE) RETURNS INTEGER
 AS
 $$
 BEGIN
-  RETURN 20;
+    CASE (
+        SELECT ct.rating_policy
+        FROM chess_type ct
+        WHERE ct.chess_type_id = get_K_factor.chess_type_id
+        )
+    WHEN 'flat' THEN RETURN  (
+        SELECT ct.rating_policy
+        FROM chess_type ct
+        WHERE ct.chess_type_id = get_K_factor.chess_type_id
+    );
+    WHEN 'unrated' THEN RETURN 0;
+    WHEN 'fide_standard' THEN
+        --this doesn't work yet. We need to consider published rating lists etc.
+--        IF (
+--            SELECT COUNT()
+--            FROM games g1
+--            WHERE
+--                (g1.white_player_id = player_id OR g1.black_player_id = player_id)
+--            AND result IS NOT NULL
+--            AND get_K_factor.chess_type_id = (
+--                    SELECT t.chess_type_id
+--                    FROM games g2 JOIN tournaments t USING (tournament_id)
+--                    WHERE g2.game_id = g1.game_id
+--                )
+--            ) >= 30
+        IF (SELECT MAX(value)
+            FROM rating_history rh
+            WHERE rh.player_id=get_K_factor.player_id
+            AND rh.chess_type_id=get_K_factor.chess_type_id) >=2400 THEN RETURN 10;
+        END IF;
+        IF
+            EXTRACT('year' FROM
+                    (SELECT per.date_of_birth
+                     FROM persons per
+                     JOIN players pla USING (person_id)
+                     WHERE pla.player_id=get_K_factor.player_id)
+            )+18 <= EXTRACT('year' FROM date_played) THEN RETURN 40;
+        END IF;
+        RETURN 20;
+    END CASE;
+    RAISE NOTICE 'Unsupported rating policy. Returning K-factor = 0';
 END;
 $$ LANGUAGE plpgsql;
 
@@ -322,7 +376,7 @@ BEGIN
   SET value = value + FIDE_rating_change(
     black_old_rating,
     white_old_rating,
-    get_K_factor(NEW.white_player_id, game_chess_type_id),
+    get_K_factor(NEW.black_player_id, game_chess_type_id),
     1-NEW.result
   )
   WHERE player_id = NEW.black_player_id AND chess_type_id = game_chess_type_id;
