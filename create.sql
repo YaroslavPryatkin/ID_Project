@@ -7,8 +7,7 @@ CREATE TABLE "persons"(
     "last_name" VARCHAR(128) NOT NULL,
     "date_of_birth" DATE NOT NULL,
     "gender" GENDER NOT NULL,
-    "country_id" INTEGER NOT NULL,
-    "club_id" INTEGER NULL
+    "country_id" INTEGER NOT NULL
 );
 
 CREATE TABLE "countries"(
@@ -108,12 +107,37 @@ CREATE TABLE "players_titles"(
     PRIMARY KEY("player_id", "title_short_name")
 );
 
+CREATE TABLE "club_memberships"(
+    "player_id" INTEGER NOT NULL,
+    "club_id" INTEGER NOT NULL,
+    PRIMARY KEY ("player_id", "club_id")
+);
+
+CREATE TABLE "clubs"(
+    "club_id" SERIAL PRIMARY KEY,
+    "country_id" INTEGER,
+    "name" VARCHAR(128)
+);
+
+CREATE TABLE "club_contact_data"(
+    "club_id" INTEGER NOT NULL,
+    "mail_address" VARCHAR(254) NOT NULL,
+    "website" VARCHAR(256),
+    "timestamp_from" DATE NOT NULL,
+    "timestamp_to" DATE,
+    PRIMARY KEY("club_id", "timestamp_from")
+);
+
 ALTER TABLE
     "person_contact_data" ADD CONSTRAINT "person_contact_data_person_id_foreign" FOREIGN KEY("person_id") REFERENCES "persons"("person_id");
+ALTER TABLE
+    "club_contact_data" ADD CONSTRAINT "club_contact_data_club_id_foreign" FOREIGN KEY("club_id") REFERENCES "clubs"("club_id");
 ALTER TABLE
     "tournaments" ADD CONSTRAINT "tournaments_chess_type_id_foreign" FOREIGN KEY("chess_type_id") REFERENCES "chess_type"("chess_type_id");
 ALTER TABLE
     "players_titles" ADD CONSTRAINT "players_titles_player_id_foreign" FOREIGN KEY("player_id") REFERENCES "players"("player_id");
+ALTER TABLE
+    "club_memberships" ADD CONSTRAINT "club_memberships_player_id_foreign" FOREIGN KEY("player_id") REFERENCES "players"("player_id");
 ALTER TABLE
     "players" ADD CONSTRAINT "players_person_id_foreign" FOREIGN KEY("person_id") REFERENCES "persons"("person_id");
 ALTER TABLE
