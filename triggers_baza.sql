@@ -1,19 +1,23 @@
---Player cannot play against himself
+----Player cannot play against himself
+--
+--CREATE OR REPLACE FUNCTION dont_self_play()
+--RETURNS TRIGGER AS
+--$$
+--BEGIN
+--   IF NEW.white_player_id = NEW.black_player_id THEN RAISE EXCEPTION 'A player cannot play against themselves.';
+--   END IF;
+--   RETURN NEW;
+--END;
+--$$
+--LANGUAGE plpgsql;
+--
+--CREATE TRIGGER trigger_dont_self_play
+--BEFORE INSERT OR UPDATE ON games
+--FOR EACH ROW EXECUTE FUNCTION dont_self_play();
 
-CREATE OR REPLACE FUNCTION dont_self_play()
-RETURNS TRIGGER AS
-$$
-BEGIN
-   IF NEW.white_player_id = NEW.black_player_id THEN RAISE EXCEPTION 'A player cannot play against themselves.';
-   END IF;
-   RETURN NEW;
-END;
-$$
-LANGUAGE plpgsql;
+-- I see no reason for this not to be a check. After discussing I commented this out ~sara.
 
-CREATE TRIGGER trigger_dont_self_play
-BEFORE INSERT OR UPDATE ON games
-FOR EACH ROW EXECUTE FUNCTION dont_self_play();
+
 
 --Monitoring contact history: when a new concact data is added, we close previous record
 
