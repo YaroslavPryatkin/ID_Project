@@ -85,6 +85,7 @@ CREATE TABLE "games"(
     "result" = 0.5
     or
     "result" = 0.0)
+    CHECK (white_player_id IS DISTINCT FROM black_player_id)
 );
 
 CREATE TABLE "live_rating"(
@@ -288,7 +289,7 @@ BEGIN
         WHERE ct.chess_type_id = get_K_factor.chess_type_id
         )
     WHEN 'flat' THEN RETURN  (
-        SELECT ct.rating_policy
+        SELECT ct.k_factor
         FROM chess_type ct
         WHERE ct.chess_type_id = get_K_factor.chess_type_id
     );
@@ -367,7 +368,7 @@ BEGIN
   SET value = value + FIDE_rating_change(
     white_old_rating,
     black_old_rating,
-    get_K_factor(NEW.white_player_id, game_chess_type_id),
+    get_K_factor(NEW.white_player_id, game_chess_type_id, NEW.date),
     NEW.result
   )
   WHERE player_id = NEW.white_player_id AND chess_type_id = game_chess_type_id;
@@ -376,7 +377,7 @@ BEGIN
   SET value = value + FIDE_rating_change(
     black_old_rating,
     white_old_rating,
-    get_K_factor(NEW.black_player_id, game_chess_type_id),
+    get_K_factor(NEW.black_player_id, game_chess_type_id, NEW.date),
     1-NEW.result
   )
   WHERE player_id = NEW.black_player_id AND chess_type_id = game_chess_type_id;
