@@ -19,8 +19,8 @@ CREATE TABLE "countries"(
 
 CREATE TABLE "person_contact_data"(
     "person_id" INTEGER NOT NULL,
-    "mail_address" TEXT NOT NULL,
-    "phone_number" TEXT NOT NULL,
+    "mail_address" VARCHAR (254) NOT NULL,
+    "phone_number" VARCHAR (15) NOT NULL,
     "timestamp_from" DATE NOT NULL,
     "timestamp_to" DATE,
     PRIMARY KEY("person_id", "timestamp_from")
@@ -39,7 +39,8 @@ CREATE TABLE "arbiters"(
 CREATE TABLE "tournaments"(
     "tournament_id" SERIAL PRIMARY KEY,
     "chess_type_id" INTEGER NOT NULL,
-    "address" TEXT NOT NULL,
+    "city" VARCHAR(64) NOT NULL,
+    "street_address" VARCHAR(128) NOT NULL,
     "country_id" INTEGER NOT NULL,
     "name" VARCHAR(64) NOT NULL,
     "main_arbiter" INTEGER NOT NULL,
