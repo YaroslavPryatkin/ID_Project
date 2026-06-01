@@ -13,7 +13,8 @@ CREATE TABLE "persons"(
 CREATE TABLE "countries"(
     "country_id" SERIAL PRIMARY KEY,
     "name" VARCHAR(128) NOT NULL,
-    "continent" CONTINENT NOT NULL
+    "continent" CONTINENT NOT NULL,
+    "is_active" BOOLEAN DEFAULT TRUE
 );
 
 CREATE TABLE "person_contact_data"(
@@ -42,7 +43,10 @@ CREATE TABLE "tournaments"(
     "country_id" INTEGER NOT NULL,
     "name" VARCHAR(64) NOT NULL,
     "main_arbiter" INTEGER NOT NULL,
-    "time_control_id" INTEGER NOT NULL
+    "time_control_id" INTEGER NOT NULL,
+    "date_from" DATE NOT NULL,
+    "date_to" DATE,
+    CHECK (date_from < date_to)
 );
 
 CREATE TABLE "chess_type"(
@@ -81,6 +85,7 @@ CREATE TABLE "rating_history"(
     "chess_type_id" INTEGER NOT NULL,
     "date_from" DATE NOT NULL,
     "date_to" DATE,
+    CHECK (date_from < date_to),
     PRIMARY KEY("player_id", "chess_type_id", "date_from")
 );
 
