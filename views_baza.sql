@@ -1,6 +1,6 @@
 --Current contact data
 CREATE VIEW current_contact_data AS 
-SELECT p.person_id, p.first_name, p.last_name, pcd.mail_adress, pcd.phone_number
+SELECT p.person_id, p.first_name, p.last_name, pcd.mail_address, pcd.phone_number
 FROM persons p JOIN person_contact_data pcd ON(p.person_id = pcd.person_id)
 WHERE pcd.timestamp_to IS NULL;
 
