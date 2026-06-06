@@ -74,7 +74,7 @@ CREATE TABLE "games"(
     "tournament_id" INTEGER NOT NULL,
     "white_player_id" INTEGER NOT NULL,
     "black_player_id" INTEGER NOT NULL,
-    "result" MATCH_RESULT, 
+    "result" MATCH_RESULT NOT NULL, 
     "date" DATE NOT NULL, 
     "round_number" INTEGER NOT NULL,
     "pgn" TEXT NULL,
@@ -321,14 +321,27 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION match_result_to_numeric(res MATCH_RESULT) RETURNS NUMERIC(2,1) AS $$
+    BEGIN
+    if res = 'White Wins' then 
+        RETURN 1.0;
+    ELSIF res = 'Black Wins' then
+        RETURN 0.0;
+    ELSE
+        RETURN 0.5;
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
 
 CREATE OR REPLACE FUNCTION update_ratings_after_new_game_result() RETURNS TRIGGER AS $update_ratings_after_new_game_result$
 DECLARE
   white_old_rating INTEGER;
   black_old_rating INTEGER;
   game_chess_type_id INTEGER;
+  numeric_res NUMERIC(2,1);
 BEGIN
-  IF NEW.result IS NULL THEN
+  IF NEW.result = 'Unplayed' THEN
     RETURN NEW;
   END IF;
   IF TG_OP = 'UPDATE' AND OLD.result IS NOT DISTINCT FROM NEW.result THEN
@@ -358,12 +371,14 @@ BEGIN
     AND rh.date_to IS NULL
   );
 
+  numeric_res:= match_result_to_numeric(NEW.result);
+
   UPDATE live_rating 
   SET value = value + FIDE_rating_change(
     white_old_rating,
     black_old_rating,
     get_K_factor(NEW.white_player_id, game_chess_type_id, NEW.date),
-    NEW.result
+    numeric_res
   )
   WHERE player_id = NEW.white_player_id AND chess_type_id = game_chess_type_id;
 
@@ -372,7 +387,7 @@ BEGIN
     black_old_rating,
     white_old_rating,
     get_K_factor(NEW.black_player_id, game_chess_type_id, NEW.date),
-    1-NEW.result
+    1-numeric_res
   )
   WHERE player_id = NEW.black_player_id AND chess_type_id = game_chess_type_id;
 
