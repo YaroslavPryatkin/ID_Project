@@ -100,6 +100,7 @@ CREATE TABLE "rating_history"(
 
 CREATE TABLE "time_controls"(
     "time_control_id" SERIAL PRIMARY KEY,
+    "name" VARCHAR(64) NOT NULL UNIQUE,
     "starting_time" INTERVAL NOT NULL,
     "increment" INTERVAL NOT NULL DEFAULT interval '0 seconds',
     UNIQUE("starting_time", "increment"),
