@@ -125,10 +125,10 @@ INSERT INTO players_titles (player_id, title_short_name, date_achieved) VALUES
 -- ----------------------------------------------------------------------------
 -- Time controls
 -- ----------------------------------------------------------------------------
-INSERT INTO time_controls (starting_time, increment) VALUES
-                                                         ('90 minutes', '30 seconds'),   -- 1  classical
-                                                         ('15 minutes', '10 seconds'),   -- 2  rapid
-                                                         ('3 minutes',  '2 seconds');    -- 3  blitz
+INSERT INTO time_controls (name, starting_time, increment) VALUES
+                                                         ('classical', '90 minutes', '30 seconds'),   -- 1  classical
+                                                         ('rapid', '15 minutes', '10 seconds'),   -- 2  rapid
+                                                         ('blitz', '3 minutes',  '2 seconds');    -- 3  blitz
 
 -- ----------------------------------------------------------------------------
 -- Chess types  (one per rating policy, to show how K-factor differs)
