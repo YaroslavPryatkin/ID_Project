@@ -1,6 +1,10 @@
 CREATE TYPE GENDER AS ENUM ('Male', 'Female', 'Other');
 CREATE TYPE CONTINENT AS ENUM ('Asia', 'Africa', 'North America', 'South America', 'Antarctica', 'Europe', 'Australia');
 
+CREATE TYPE RATING_POLICY AS ENUM ('unrated', 'flat', 'fide_standard');
+CREATE TYPE ACTIVE_STATUS AS ENUM ('Active', 'Inactive');
+CREATE TYPE MATCH_RESULT AS ENUM ('White Wins', 'Draw', 'Black Wins', 'Unplayed');
+
 CREATE TABLE "persons"(
     "person_id" SERIAL PRIMARY KEY,
     "first_name" VARCHAR(128) NOT NULL,
@@ -12,9 +16,9 @@ CREATE TABLE "persons"(
 
 CREATE TABLE "countries"(
     "country_id" SERIAL PRIMARY KEY,
-    "name" VARCHAR(128) NOT NULL,
+    "name" VARCHAR(128) NOT NULL UNIQUE,
     "continent" CONTINENT NOT NULL,
-    "is_active" BOOLEAN DEFAULT TRUE
+    "is_active" ACTIVE_STATUS DEFAULT 'Active'
 );
 
 CREATE TABLE "person_contact_data"(
@@ -42,7 +46,7 @@ CREATE TABLE "tournaments"(
     "city" VARCHAR(64) NOT NULL,
     "street_address" VARCHAR(128) NOT NULL,
     "country_id" INTEGER NOT NULL,
-    "name" VARCHAR(64) NOT NULL,
+    "name" VARCHAR(64) NOT NULL UNIQUE,
     "main_arbiter" INTEGER NOT NULL,
     "time_control_id" INTEGER NOT NULL,
     "date_from" DATE NOT NULL,
@@ -52,18 +56,13 @@ CREATE TABLE "tournaments"(
 
 CREATE TABLE "chess_type"(
     "chess_type_id" SERIAL PRIMARY KEY,
-    "name" VARCHAR(64) NOT NULL,
+    "name" VARCHAR(64) NOT NULL UNIQUE,
     "total_time_from" INTERVAL,
     "total_time_to" INTERVAL,
-    --
-    "rating_policy" VARCHAR(32) NOT NULL DEFAULT 'unrated',
+    "rating_policy" RATING_POLICY NOT NULL DEFAULT 'unrated',
     "k_factor" INTEGER,
-
-    CONSTRAINT k_factor_required_for_flat
-        CHECK ( rating_policy <> 'flat' OR k_factor IS NOT NULL ),
-
-    CONSTRAINT k_factor_positive
-        CHECK ( k_factor IS NULL OR k_factor > 0)
+    CONSTRAINT k_factor_required_for_flat CHECK ( rating_policy <> 'flat' OR k_factor IS NOT NULL ),
+    CONSTRAINT k_factor_positive CHECK ( k_factor IS NULL OR k_factor > 0)
     -- how K-factor is calculated.
     -- I wasn't sure how to implement K-factors and if this should be an enum or not.
     -- I used some help from and LLM to make a decision on what to do, and after
@@ -75,16 +74,10 @@ CREATE TABLE "games"(
     "tournament_id" INTEGER NOT NULL,
     "white_player_id" INTEGER NOT NULL,
     "black_player_id" INTEGER NOT NULL,
-    "result" NUMERIC(2, 1),
-    "date" DATE NOT NULL, --start date
+    "result" MATCH_RESULT, 
+    "date" DATE NOT NULL, 
     "round_number" INTEGER NOT NULL,
-    "pgn" TEXT NULL
-    CHECK ("result" IS NULL or 
-    "result" = 1.0
-    or
-    "result" = 0.5
-    or
-    "result" = 0.0)
+    "pgn" TEXT NULL,
     CHECK (white_player_id IS DISTINCT FROM black_player_id)
 );
 
@@ -109,7 +102,8 @@ CREATE TABLE "time_controls"(
     "time_control_id" SERIAL PRIMARY KEY,
     "starting_time" INTERVAL NOT NULL,
     "increment" INTERVAL NOT NULL DEFAULT interval '0 seconds',
-    UNIQUE("starting_time", "increment")
+    UNIQUE("starting_time", "increment"),
+    CHECK ("starting_time" > interval '0 seconds')
 );
 
 CREATE TABLE "titles"(
@@ -128,16 +122,16 @@ CREATE TABLE "players_titles"(
     PRIMARY KEY("player_id", "title_short_name")
 );
 
+CREATE TABLE "clubs"(
+    "club_id" SERIAL PRIMARY KEY,
+    "country_id" INTEGER,
+    "name" VARCHAR(128) UNIQUE
+);
+
 CREATE TABLE "club_memberships"(
     "player_id" INTEGER NOT NULL,
     "club_id" INTEGER NOT NULL,
     PRIMARY KEY ("player_id", "club_id")
-);
-
-CREATE TABLE "clubs"(
-    "club_id" SERIAL PRIMARY KEY,
-    "country_id" INTEGER,
-    "name" VARCHAR(128)
 );
 
 CREATE TABLE "club_contact_data"(
@@ -194,15 +188,15 @@ ALTER TABLE
 ALTER TABLE
     "arbiters" ADD CONSTRAINT "arbiters_person_id_foreign" FOREIGN KEY("person_id") REFERENCES "persons"("person_id");
 
-CREATE VIEW "persons_readable" AS (
-  SELECT
-  "first_name" AS "First name",
-  "last_name" AS "Last name",
-  "date_of_birth" AS "Date of birth",
-  "gender" AS "Gender",
-  "name" AS "Country"
-  FROM persons JOIN countries USING (country_id)
-);
+-- CREATE VIEW "persons_readable" AS (
+--   SELECT
+--   "first_name" AS "First name",
+--   "last_name" AS "Last name",
+--   "date_of_birth" AS "Date of birth",
+--   "gender" AS "Gender",
+--   "name" AS "Country"
+--   FROM persons JOIN countries USING (country_id)
+-- );
 
 CREATE FUNCTION FIDE_scoring_probability (first_rating INTEGER, second_rating INTEGER)
 RETURNS NUMERIC(3, 2)AS $$
