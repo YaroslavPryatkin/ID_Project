@@ -78,12 +78,7 @@ JOIN titles t ON (t.short_name = pt.title_short_name);
 
 --View of tournament results
 CREATE VIEW tournament_results AS
-SELECT t.tournament_id, t.name AS tournament_name, g.round_number, pw.first_name || ' ' || pw.last_name AS white_player, pb.first_name || ' ' || pb.last_name AS black_player,
-CASE WHEN g.result = 1 THEN '1-0'
-     WHEN g.result = 0.5 THEN '1/2-1/2'
-     WHEN g.result = 0 THEN '0-1'
-     ELSE 'Not played'
-END AS result
+SELECT t.tournament_id, t.name AS tournament_name, g.round_number, pw.first_name || ' ' || pw.last_name AS white_player, pb.first_name || ' ' || pb.last_name AS black_player, g.result
 FROM games g JOIN tournaments t ON (t.tournament_id = g.tournament_id)
 JOIN players wp ON (wp.player_id = g.white_player_id)
 JOIN persons pw ON (pw.person_id = wp.person_id)
