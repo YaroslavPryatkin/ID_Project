@@ -41,6 +41,7 @@ INSERT INTO countries (name, continent) VALUES
                                             ('Russia',        'Europe'),         -- 5
                                             ('Poland',        'Europe');         -- 6
 
+
 -- ----------------------------------------------------------------------------
 -- People  (8 future players + 2 arbiters)
 -- ----------------------------------------------------------------------------
@@ -55,6 +56,7 @@ INSERT INTO persons (first_name, last_name, date_of_birth, gender, country_id) V
                                                                                    ('Rameshbabu',   'Praggnanandhaa',   '2005-08-10', 'Male', 3),  -- 8
                                                                                    ('Anna',         'Schmidt',          '1985-03-14', 'Female', 6),-- 9  (arbiter)
                                                                                    ('Pavel',        'Nowak',            '1979-09-02', 'Male', 6);  -- 10 (arbiter)
+
 
 -- ----------------------------------------------------------------------------
 -- Players  (person_id 1..8  ->  player_id 1..8)
@@ -99,6 +101,8 @@ INSERT INTO person_contact_data (person_id, mail_address, phone_number, timestam
                                                                                             (2, 'hikaru@example.com',     '+12025550143', '2021-05-10'),
                                                                                             (3, 'fabiano@example.com',    '+12025550178', '2020-02-20');
 
+
+
 -- ----------------------------------------------------------------------------
 -- Titles
 -- ----------------------------------------------------------------------------
@@ -134,8 +138,10 @@ INSERT INTO time_controls (starting_time, increment) VALUES
 -- ----------------------------------------------------------------------------
 INSERT INTO chess_type (name, total_time_from, total_time_to, rating_policy, k_factor) VALUES
                                                                                            ('Classical', '120 minutes', '360 minutes', 'fide_standard', NULL),  -- 1
-                                                                                           ('Rapid',     '20 minutes',  '60 minutes',  'flat',          20),    -- 2
-                                                                                           ('Blitz',     '6 minutes',   '15 minutes',  'unrated',       NULL);  -- 3
+                                                                                         ('Rapid',     '20 minutes',  '60 minutes',  'flat',          20),    -- 2
+                                                                                       ('Blitz',     '6 minutes',   '15 minutes',  'unrated',       NULL);  -- 3
+
+
 
 -- ----------------------------------------------------------------------------
 -- Tournaments
@@ -197,23 +203,24 @@ INSERT INTO live_rating (player_id, chess_type_id, value) VALUES
 -- Classical "Demo Masters 2026" (tournament 1)  -- fide_standard, K = 10 here
 -- Round 1
 INSERT INTO games (tournament_id, white_player_id, black_player_id, result, date, round_number) VALUES
-                                                                                                    (1, 1, 2, 0.5, '2026-01-05', 1),
-                                                                                                    (1, 3, 4, 1.0, '2026-01-05', 1),
-                                                                                                    (1, 5, 6, 0.0, '2026-01-05', 1),
-                                                                                                    (1, 7, 8, 0.5, '2026-01-05', 1);
+                                                                                                    (1, 1, 2, 'White Wins', '2026-01-05', 1),
+                                                                                                    (1, 3, 4, 'White Wins', '2026-01-05', 1),
+                                                                                                    (1, 5, 6, 'Black Wins', '2026-01-05', 1),
+                                                                                                    (1, 7, 8, 'Draw', '2026-01-05', 1);
 -- Round 2
 INSERT INTO games (tournament_id, white_player_id, black_player_id, result, date, round_number) VALUES
-                                                                                                    (1, 1, 3, 1.0, '2026-01-06', 2),
-                                                                                                    (1, 2, 4, 0.5, '2026-01-06', 2),
-                                                                                                    (1, 5, 7, 0.5, '2026-01-06', 2),
-                                                                                                    (1, 6, 8, 0.0, '2026-01-06', 2);
+                                                                                                    (1, 1, 3, 'White Wins', '2026-01-06', 2),
+                                                                                                    (1, 2, 4, 'Draw', '2026-01-06', 2),
+                                                                                                    (1, 5, 7, 'Draw', '2026-01-06', 2),
+                                                                                                    (1, 6, 8, 'Black Wins', '2026-01-06', 2);
 -- Round 3  (one game not yet played)
 INSERT INTO games (tournament_id, white_player_id, black_player_id, result, date, round_number) VALUES
-    (1, 1, 4, NULL, '2026-01-07', 3);
+    (1, 1, 4, 'Unplayed', '2026-01-07', 3);
 
 -- Rapid "Rapid Challenge 2026" (tournament 2)  -- flat, K = 20
 INSERT INTO games (tournament_id, white_player_id, black_player_id, result, date, round_number) VALUES
-                                                                                                    (2, 2, 1, 1.0, '2026-02-01', 1),
-                                                                                                    (2, 3, 5, 0.5, '2026-02-01', 1);
+                                                                                                    (2, 2, 1, 'Black Wins', '2026-02-01', 1),
+                                                                                                    (2, 3, 5, 'Draw', '2026-02-01', 1);
 
 COMMIT;
+
