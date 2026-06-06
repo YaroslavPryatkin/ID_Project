@@ -1,3 +1,59 @@
+-- ==========================================================================
+-- HELPER VIEWS FOR CONCATENATED DISPLAY
+-- ==========================================================================
+
+DROP VIEW IF EXISTS persons_concatenated;
+CREATE VIEW persons_concatenated AS
+SELECT p.person_id, (p.first_name || ' ' || p.last_name) AS name
+FROM persons p
+ORDER BY p.last_name, p.first_name;
+
+DROP VIEW IF EXISTS players_concatenated;
+CREATE VIEW players_concatenated AS
+SELECT p.person_id, (p.first_name || ' ' || p.last_name) AS name
+FROM persons p
+WHERE EXISTS (SELECT 1 FROM players WHERE person_id = p.person_id)
+ORDER BY p.last_name, p.first_name;
+
+DROP VIEW IF EXISTS arbiters_concatenated;
+CREATE VIEW arbiters_concatenated AS
+SELECT p.person_id, (p.first_name || ' ' || p.last_name) AS name
+FROM persons p
+WHERE EXISTS (SELECT 1 FROM arbiters WHERE person_id = p.person_id)
+ORDER BY p.last_name, p.first_name;
+
+DROP VIEW IF EXISTS people_not_players_concatenated;
+CREATE VIEW people_not_players_concatenated AS
+SELECT p.person_id, (p.first_name || ' ' || p.last_name) AS name
+FROM persons p
+WHERE p.person_id NOT IN (SELECT person_id FROM players)
+ORDER BY p.last_name, p.first_name;
+
+DROP VIEW IF EXISTS people_not_arbiters_concatenated;
+CREATE VIEW people_not_arbiters_concatenated AS
+SELECT p.person_id, (p.first_name || ' ' || p.last_name) AS name
+FROM persons p
+WHERE p.person_id NOT IN (SELECT person_id FROM arbiters)
+ORDER BY p.last_name, p.first_name;
+
+-- ==========================================================================
+-- OTHER VIEWS
+-- ==========================================================================
+
+CREATE OR REPLACE VIEW arbiters_full_info AS
+SELECT p.person_id, p.first_name, p.last_name, p.date_of_birth, p.gender, c.name AS "Country"
+FROM persons p
+JOIN countries c USING (country_id)
+WHERE EXISTS (SELECT 1 FROM arbiters WHERE person_id = p.person_id)
+ORDER BY p.last_name, p.first_name;
+
+CREATE OR REPLACE VIEW players_full_info AS
+SELECT p.person_id, p.first_name, p.last_name, p.date_of_birth, p.gender, c.name AS "Country"
+FROM persons p
+JOIN countries c USING (country_id)
+WHERE EXISTS (SELECT 1 FROM players WHERE person_id = p.person_id)
+ORDER BY p.last_name, p.first_name;
+
 --Current contact data
 CREATE VIEW current_contact_data AS 
 SELECT p.person_id, p.first_name, p.last_name, pcd.mail_address, pcd.phone_number
