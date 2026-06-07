@@ -56,14 +56,13 @@ public final class UiFactory {
         Button button = createBarButton(
                 text,
                 backgroundColor,
-                hoverColor,
                 UILayoutSettings.NAV_BUTTON_TEXT_COLOR,
                 UILayoutSettings.NAV_SCREEN_BUTTON_FONT,
                 UILayoutSettings.NAV_BUTTON_CORNER_RADIUS,
                 Pos.CENTER,
                 true
         );
-        attachHoverBackground(button, backgroundColor, hoverColor);
+        attachHoverBackground(button, hoverColor);
         return button;
     }
 
@@ -80,7 +79,7 @@ public final class UiFactory {
                 Pos.CENTER,
                 true
         );
-        attachHoverBackground(button, backgroundColor, hover);
+        attachHoverBackground(button, hover);
         return button;
     }
 
@@ -95,7 +94,7 @@ public final class UiFactory {
                 Pos.CENTER_LEFT,
                 true
         );
-        attachHoverBackground(button, normalColor, hoverColor);
+        attachHoverBackground(button, hoverColor);
         return button;
     }
 
@@ -103,14 +102,13 @@ public final class UiFactory {
         Button button = createBarButton(
                 text,
                 normalColor,
-                hoverColor,
                 UILayoutSettings.TOOLBAR_BUTTON_TEXT_COLOR,
                 UILayoutSettings.BOTTOM_TOOLBAR_BUTTON_FONT,
                 UILayoutSettings.BOTTOM_TOOLBAR_BUTTON_CORNER_RADIUS,
                 Pos.CENTER,
                 false
         );
-        attachHoverBackground(button, normalColor, hoverColor);
+        attachHoverBackground(button, hoverColor);
         return button;
     }
 
@@ -125,7 +123,7 @@ public final class UiFactory {
             boolean wrapText
     ) {
         return createRoundedButton(
-                text, normalBackground, hoverBackground, textColor, font, cornerRadius, alignment, wrapText,
+                text, normalBackground, textColor, font, cornerRadius, alignment, wrapText,
                 UILayoutSettings.LIST_BUTTON_MIN_HEIGHT,
                 UILayoutSettings.LIST_BUTTON_PADDING_VERTICAL,
                 UILayoutSettings.LIST_BUTTON_PADDING_HORIZONTAL
@@ -135,7 +133,6 @@ public final class UiFactory {
     public static Button createBarButton(
             String text,
             String normalBackground,
-            String hoverBackground,
             String textColor,
             javafx.scene.text.Font font,
             double cornerRadius,
@@ -143,7 +140,7 @@ public final class UiFactory {
             boolean wrapText
     ) {
         return createRoundedButton(
-                text, normalBackground, hoverBackground, textColor, font, cornerRadius, alignment, wrapText,
+                text, normalBackground, textColor, font, cornerRadius, alignment, wrapText,
                 UILayoutSettings.BAR_BUTTON_MIN_HEIGHT,
                 UILayoutSettings.BAR_BUTTON_PADDING_VERTICAL,
                 UILayoutSettings.BAR_BUTTON_PADDING_HORIZONTAL
@@ -153,7 +150,6 @@ public final class UiFactory {
     private static Button createRoundedButton(
             String text,
             String normalBackground,
-            String hoverBackground,
             String textColor,
             javafx.scene.text.Font font,
             double cornerRadius,
@@ -177,7 +173,21 @@ public final class UiFactory {
         return button;
     }
 
-    public static void attachHoverBackground(Button button, String normalBackground, String hoverBackground) {
+    public static Button createStaticNavbarButton(String text, String color) {
+        Button button = createBarButton(
+                text,
+                color,
+                UILayoutSettings.FONT_COLOR_ON_DARK,
+                UILayoutSettings.NAV_SCREEN_BUTTON_FONT,
+                UILayoutSettings.NAV_BUTTON_CORNER_RADIUS,
+                Pos.CENTER,
+                true
+        );
+        button.setFocusTraversable(false);
+        return button;
+    }
+
+    public static void attachHoverBackground(Button button, String hoverBackground) {
         String textColor = extractTextFill(button.getStyle());
         double radius = extractRadius(button.getStyle());
         Pos alignment = button.getAlignment();

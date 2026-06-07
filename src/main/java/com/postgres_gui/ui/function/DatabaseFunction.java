@@ -3,6 +3,7 @@ package com.postgres_gui.ui.function;
 import com.postgres_gui.database.DatabaseFunctionInfo;
 import com.postgres_gui.database.DatabaseManager;
 import com.postgres_gui.database.FunctionParameter;
+import com.postgres_gui.ui.AppWindow;
 import com.postgres_gui.ui.components.DroplistAutocomplete;
 import com.postgres_gui.ui.components.ParameterNameParser;
 import com.postgres_gui.ui.components.UiFactory;
@@ -14,6 +15,10 @@ import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -23,6 +28,9 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
 
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -53,11 +61,24 @@ public class DatabaseFunction extends StackPane {
     private boolean showingResult;
     private boolean showingConsole;
     private Runnable stateChangeListener;
+    private AppWindow app;
 
-    public DatabaseFunction(DatabaseFunctionInfo functionInfo,
+
+    private boolean cellSelectionMode = false;
+    private int selectedCellRow = -1;
+    private int selectedCellColumn = -1;
+    private int startCellRow = -1;
+    private int startCellColumn = -1;
+    private int endCellRow = -1;
+    private int endCellColumn = -1;
+    private int savedRowIndex = -1; // Сохраняем выбранную строку при входе в режим ячеек
+
+    public DatabaseFunction(AppWindow app,
+                            DatabaseFunctionInfo functionInfo,
                             DatabaseManager dbManager,
                             String displayName,
                             List<ParameterNameParser.ParseResult> parsedAliases) throws Exception {
+        this.app = app;
         this.functionInfo = functionInfo;
         this.dbManager = dbManager;
         this.displayName = displayName;
@@ -125,6 +146,9 @@ public class DatabaseFunction extends StackPane {
         tableView.setStyle("-fx-background-color: transparent;");
         tableView.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
 
+        tableView.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+        tableView.addEventFilter(KeyEvent.KEY_PRESSED, this::handleTableKeyCopy);
+
         VBox consoleRoot = new VBox(consoleArea);
         VBox.setVgrow(consoleArea, Priority.ALWAYS);
         consoleRoot.setPadding(new Insets(12));
@@ -177,10 +201,29 @@ public class DatabaseFunction extends StackPane {
             ScrollPane droplist = DroplistAutocomplete.attach(field, spec, dbManager, droplistRefreshCallbacks);
 
             final int index = i;
-            field.setOnAction(e -> {
-                syncArgumentValuesFromFields();
-                if (index < inputFields.size() - 1) {
-                    inputFields.get(index + 1).requestFocus();
+            field.addEventHandler(javafx.scene.input.KeyEvent.KEY_PRESSED, e -> {
+                if (e.getCode() == javafx.scene.input.KeyCode.UP) {
+                    if (index > 0) {
+                        TextField prevField = inputFields.get(index - 1);
+                        prevField.requestFocus();
+                        prevField.positionCaret(prevField.getText().length());
+                        e.consume();
+                    }
+                } else if (e.getCode() == javafx.scene.input.KeyCode.ENTER) {
+                    syncArgumentValuesFromFields();
+                    if (index < inputFields.size() - 1) {
+                        TextField nextField = inputFields.get(index + 1);
+                        nextField.requestFocus();
+                        nextField.positionCaret(nextField.getText().length());
+                        e.consume();
+                    }
+                } else if (e.getCode() == javafx.scene.input.KeyCode.BACK_SPACE) {
+                    if (field.getText().isEmpty() && index > 0) {
+                        TextField prevField = inputFields.get(index - 1);
+                        prevField.requestFocus();
+                        prevField.positionCaret(prevField.getText().length());
+                        e.consume();
+                    }
                 }
             });
 
@@ -375,11 +418,18 @@ public class DatabaseFunction extends StackPane {
             return;
         }
 
-        tableView.setVisible(false);
-        tableView.setManaged(false);
-        scalarResultLabel.setVisible(true);
-        scalarResultLabel.setManaged(true);
-        scalarResultLabel.setText(lastResult == null ? "null" : lastResult.toString());
+        // Скалярный результат - отображаем в мини-таблице вместо Label
+        tableView.setVisible(true);
+        tableView.setManaged(true);
+        scalarResultLabel.setVisible(false);
+        scalarResultLabel.setManaged(false);
+
+        // Создаем однострочную таблицу для скалярного результата
+        List<Map<String, Object>> scalarData = new ArrayList<>();
+        Map<String, Object> resultRow = new java.util.HashMap<>();
+        resultRow.put("Result", lastResult == null ? "null" : lastResult.toString());
+        scalarData.add(resultRow);
+        bindTable(scalarData);
     }
 
     private void bindTable(List<Map<String, Object>> tableData) {
@@ -416,6 +466,32 @@ public class DatabaseFunction extends StackPane {
                 Object value = data.getValue().get(column);
                 return new javafx.beans.property.SimpleStringProperty(value == null ? "" : value.toString());
             });
+
+            // Подсвечиваем выделенные ячейки
+            col.setCellFactory(colFactory -> new TableCell<Map<String, Object>, String>() {
+                @Override
+                protected void updateItem(String item, boolean empty) {
+                    super.updateItem(item, empty);
+
+                    if (empty || getTableRow() == null) {
+                        setText(null);
+                        setStyle("");
+                        return;
+                    }
+
+                    setText(item);
+                    int row = getTableRow().getIndex();
+                    int col = getTableView().getColumns().indexOf(getTableColumn());
+
+                    // Подсвечиваем выделенную ячейку (синий цвет как в строках)
+                    if (cellSelectionMode && isCellInSelection(row, col)) {
+                        setStyle("-fx-background-color: #0093ff; -fx-text-fill: white;");
+                    } else {
+                        setStyle("");
+                    }
+                }
+            });
+
             col.setPrefWidth(140);
             col.setStyle("-fx-alignment: CENTER;");
             tableView.getColumns().add(col);
@@ -432,18 +508,29 @@ public class DatabaseFunction extends StackPane {
         if (rows.isEmpty()) {
             return;
         }
+
+        String delimiter = ";";
         List<String> columns = new ArrayList<>(rows.getFirst().keySet());
         StringBuilder sb = new StringBuilder();
-        sb.append(String.join(",", columns)).append('\n');
+
+        sb.append("sep=").append(delimiter).append('\n');
+
+        sb.append(String.join(delimiter, columns)).append('\n');
         for (Map<String, Object> row : rows) {
             List<String> values = new ArrayList<>();
             for (String column : columns) {
                 Object value = row.get(column);
                 values.add(escapeCsv(value == null ? "" : value.toString()));
             }
-            sb.append(String.join(",", values)).append('\n');
+            sb.append(String.join(delimiter, values)).append('\n');
         }
-        java.nio.file.Files.writeString(path, sb.toString());
+        byte[] bom = new byte[]{(byte) 0xEF, (byte) 0xBB, (byte) 0xBF};
+        byte[] content = sb.toString().getBytes(StandardCharsets.UTF_8);
+
+        OutputStream os = Files.newOutputStream(path);
+        os.write(bom);
+        os.write(content);
+        os.close();
     }
 
     private String escapeCsv(String value) {
@@ -451,6 +538,226 @@ public class DatabaseFunction extends StackPane {
             return "\"" + value.replace("\"", "\"\"") + "\"";
         }
         return value;
+    }
+
+    private void handleTableKeyCopy(KeyEvent event) {
+        if (!showingResult) {
+            return;
+        }
+
+        MultipleSelectionModel<Map<String, Object>> selectionModel = tableView.getSelectionModel();
+        int currentRowIndex = tableView.getFocusModel().getFocusedIndex();
+        List<String> columns = getTableColumns();
+        int columnCount = columns.size();
+
+        // Ctrl+C - копирование
+        if (event.isControlDown() && event.getCode() == KeyCode.C) {
+            if (cellSelectionMode && selectedCellRow >= 0 && selectedCellColumn >= 0) {
+                copyCells(columns);
+            } else {
+                copyRows();
+            }
+            event.consume();
+            return;
+        }
+
+        // UP/DOWN - навигация по строкам
+        if (event.getCode() == KeyCode.UP || event.getCode() == KeyCode.DOWN) {
+            if (cellSelectionMode) {
+                cellSelectionMode = false;
+                selectedCellColumn = -1;
+                startCellRow = -1;
+                startCellColumn = -1;
+                endCellRow = -1;
+                endCellColumn = -1;
+                if (selectedCellRow >= 0) {
+                    currentRowIndex = selectedCellRow;
+                }
+                selectedCellRow = -1;
+
+                tableView.refresh();
+            }
+
+            int newIndex = currentRowIndex;
+            if (event.getCode() == KeyCode.UP && currentRowIndex > 0) {
+                newIndex = currentRowIndex - 1;
+            } else if (event.getCode() == KeyCode.DOWN && currentRowIndex < tableView.getItems().size() - 1) {
+                newIndex = currentRowIndex + 1;
+            }
+
+            if (event.isShiftDown()) {
+                // Shift - добавляем строку к выбранным (работает с Shift+мышь)
+                if (!selectionModel.getSelectedIndices().contains(newIndex)) {
+                    selectionModel.select(newIndex);
+                }
+            } else {
+                // Без Shift - выбираем только эту строку
+                selectionModel.clearSelection();
+                selectionModel.select(newIndex);
+                tableView.getFocusModel().focus(newIndex);
+            }
+
+            tableView.scrollTo(newIndex);
+            event.consume();
+            return;
+        }
+
+        // LEFT/RIGHT - навигация по ячейкам
+        if (event.getCode() == KeyCode.LEFT || event.getCode() == KeyCode.RIGHT) {
+            if (columnCount == 0) {
+                return;
+            }
+
+            if (!cellSelectionMode) {
+                // Входим в режим выбора ячеек - обе стрелки выбирают первую ячейку
+                cellSelectionMode = true;
+                selectionModel.clearSelection();
+
+                selectedCellRow = currentRowIndex;
+                selectedCellColumn = 0;
+                startCellRow = currentRowIndex;
+                startCellColumn = 0;
+                endCellRow = currentRowIndex;
+                endCellColumn = 0;
+            } else {
+                // Уже в режиме выбора ячеек - движемся влево/вправо
+                if (event.getCode() == KeyCode.LEFT) {
+                    if (selectedCellColumn > 0) {
+                        selectedCellColumn--;
+                    } else if (selectedCellRow > 0) {
+                        selectedCellRow--;
+                        selectedCellColumn = columnCount - 1;
+                    }
+                } else if (event.getCode() == KeyCode.RIGHT) {
+                    if (selectedCellColumn < columnCount - 1) {
+                        selectedCellColumn++;
+                    } else if (selectedCellRow < tableView.getItems().size() - 1) {
+                        selectedCellRow++;
+                        selectedCellColumn = 0;
+                    }
+                }
+
+                // Если Shift - расширяем выделение
+                if (event.isShiftDown()) {
+                    endCellRow = selectedCellRow;
+                    endCellColumn = selectedCellColumn;
+                } else {
+                    // Без Shift - сбрасываем начало диапазона
+                    startCellRow = selectedCellRow;
+                    startCellColumn = selectedCellColumn;
+                    endCellRow = selectedCellRow;
+                    endCellColumn = selectedCellColumn;
+                }
+            }
+
+            // Визуально обновляем подсвеченную ячейку
+            updateCellHighlight();
+            tableView.scrollTo(selectedCellRow);
+            event.consume();
+            return;
+        }
+    }
+
+    /**
+     * Обновляет визуальное отображение выделенной ячейки
+     */
+    private void updateCellHighlight() {
+        if (!cellSelectionMode || selectedCellRow < 0 || selectedCellColumn < 0) {
+            return;
+        }
+
+        List<String> columns = getTableColumns();
+        if (selectedCellColumn >= columns.size() || selectedCellRow >= tableView.getItems().size()) {
+            return;
+        }
+
+        // Перерисовываем таблицу для обновления стилей ячеек
+        tableView.refresh();
+    }
+
+    /**
+     * Проверяет, находится ли ячейка в диапазоне выделения
+     */
+    private boolean isCellInSelection(int row, int col) {
+        if (startCellRow == -1 || startCellColumn == -1 || endCellRow == -1 || endCellColumn == -1) {
+            return row == selectedCellRow && col == selectedCellColumn;
+        }
+
+        int minRow = Math.min(startCellRow, endCellRow);
+        int maxRow = Math.max(startCellRow, endCellRow);
+        int minCol = Math.min(startCellColumn, endCellColumn);
+        int maxCol = Math.max(startCellColumn, endCellColumn);
+
+        return row >= minRow && row <= maxRow && col >= minCol && col <= maxCol;
+    }
+
+    private List<String> getTableColumns() {
+        if (tableView.getItems().isEmpty()) {
+            return new ArrayList<>();
+        }
+        return new ArrayList<>(tableView.getItems().get(0).keySet());
+    }
+
+    private void copyCells(List<String> columns) {
+        if (selectedCellRow < 0 || selectedCellColumn < 0 || selectedCellRow >= tableView.getItems().size()) {
+            return;
+        }
+
+        StringBuilder clipboard = new StringBuilder();
+
+        int minRow = Math.min(startCellRow, endCellRow);
+        int maxRow = Math.max(startCellRow, endCellRow);
+        int minCol = Math.min(startCellColumn, endCellColumn);
+        int maxCol = Math.max(startCellColumn, endCellColumn);
+
+        for (int row = minRow; row <= maxRow; row++) {
+            List<String> rowValues = new ArrayList<>();
+            for (int col = minCol; col <= maxCol; col++) {
+                if (col < columns.size()) {
+                    Map<String, Object> rowData = tableView.getItems().get(row);
+                    Object cellValue = rowData.get(columns.get(col));
+                    rowValues.add(cellValue == null ? "" : cellValue.toString());
+                }
+            }
+            clipboard.append(String.join("; ", rowValues)).append(" \n");
+        }
+
+        Clipboard systemClipboard = Clipboard.getSystemClipboard();
+        ClipboardContent content = new ClipboardContent();
+        content.putString(clipboard.toString());
+        systemClipboard.setContent(content);
+
+        int cellCount = (maxRow - minRow + 1) * (maxCol - minCol + 1);
+        app.showSuccess("Copied " + cellCount + " cells to clipboard.");
+    }
+
+    private void copyRows() {
+        ObservableList<Map<String, Object>> selectedRows = tableView.getSelectionModel().getSelectedItems();
+
+        if (selectedRows == null || selectedRows.isEmpty()) {
+            return;
+        }
+
+        List<String> columns = getTableColumns();
+        List<String> rowStrings = new ArrayList<>();
+
+        for (Map<String, Object> row : selectedRows) {
+            List<String> values = new ArrayList<>();
+            for (String column : columns) {
+                Object value = row.get(column);
+                values.add(value == null ? "" : value.toString());
+            }
+            rowStrings.add(String.join("; ", values));
+        }
+
+        String clipboardContent = String.join(" \n", rowStrings);
+
+        Clipboard clipboard = Clipboard.getSystemClipboard();
+        ClipboardContent content = new ClipboardContent();
+        content.putString(clipboardContent);
+        clipboard.setContent(content);
+
+        app.showSuccess("Copied " + selectedRows.size() + " rows to clipboard.");
     }
 
     public boolean isShowingResult() {

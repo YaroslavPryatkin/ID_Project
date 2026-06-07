@@ -14,6 +14,7 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
+import javafx.scene.input.KeyCode;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -77,6 +78,74 @@ public class FunctionScreen extends Screen {
         buildLayout();
         loadFunctions();
         getChildren().add(layout);
+
+        this.addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, e -> {
+            if (e.isAltDown()) {
+                if (e.getCode() == javafx.scene.input.KeyCode.UP) {
+                    switchFunction(-1);
+                } else if (e.getCode() == javafx.scene.input.KeyCode.DOWN) {
+                    switchFunction(1);
+                } else if (e.getCode() == javafx.scene.input.KeyCode.LEFT) {
+                    switchScreen(-1);
+                } else if (e.getCode() == javafx.scene.input.KeyCode.RIGHT) {
+                    switchScreen(1);
+                } else if (e.getCode() == KeyCode.Q) {
+                    if(!selectedFunction.isShowingConsole() && !selectedFunction.isShowingResult())
+                        runApply();
+                    else if(selectedFunction.isShowingConsole())
+                        runClearConsoleButton();
+                    else if(selectedFunction.isShowingResult())
+                        runDoneButton();
+                }
+                else if (e.getCode() == KeyCode.W) {
+                    if(!selectedFunction.isShowingConsole() && !selectedFunction.isShowingResult())
+                        runApplyAndReset();
+                    else if(selectedFunction.isShowingResult())
+                        exportTable();
+                } else if (e.getCode() == KeyCode.E && !selectedFunction.isShowingConsole() && !selectedFunction.isShowingResult()) {
+                    runReset();
+                } else if (e.getCode() == KeyCode.R) {
+                    runConsoleButton();
+                }
+                e.consume();
+            } else if (e.getCode() == javafx.scene.input.KeyCode.ESCAPE) {
+                if (selectedFunction != null) {
+                    if (selectedFunction.isShowingConsole()) {
+                        selectedFunction.toggleConsole();
+                        e.consume();
+                    } else if (selectedFunction.isShowingResult()) {
+                        selectedFunction.clearResult();
+                        e.consume();
+                    }
+                }
+            } else if (e.getCode() == javafx.scene.input.KeyCode.ENTER) {
+                boolean isTextFieldFocused = getScene() != null &&
+                        getScene().getFocusOwner() instanceof javafx.scene.control.TextInputControl;
+
+                if (!isTextFieldFocused && selectedFunction != null) {
+                    if (selectedFunction.isShowingConsole()) {
+                        selectedFunction.toggleConsole();
+                    } else if (selectedFunction.isShowingResult()) {
+                        selectedFunction.clearResult();
+                    } else {
+                        if (selectedFunction.hasArguments()) {
+                            List<TextField> fields = selectedFunction.getInputFields();
+                            if (!fields.isEmpty()) {
+                                TextField firstField = fields.getFirst();
+                                firstField.requestFocus();
+                                firstField.positionCaret(firstField.getText().length());
+                            }
+                        } else {
+                            selectedFunction.executeFromLastField(
+                                    () -> app.showSuccess("Success"),
+                                    () -> app.showError("Error")
+                            );
+                        }
+                    }
+                    e.consume();
+                }
+            }
+        });
     }
 
     private void buildLayout() {
@@ -117,6 +186,9 @@ public class FunctionScreen extends Screen {
 
         for (ScreenConfig other : app.getConfig().getScreens()) {
             if (other.getPrefix().equals(screenConfig.getPrefix())) {
+                Button currentScreenButton = UiFactory.createStaticNavbarButton(
+                        other.getDisplayName(), palette.screenButtonSelectedHex());
+                topBar.getChildren().add(currentScreenButton);
                 continue;
             }
             String otherHover = FunctionScreenPalette.toHex(
@@ -178,28 +250,10 @@ public class FunctionScreen extends Screen {
 
         applyButton.setOnAction(e -> runApply());
         applyResetButton.setOnAction(e -> runApplyAndReset());
-        resetButton.setOnAction(e -> {
-            if (selectedFunction != null) {
-                selectedFunction.resetArguments();
-            }
-        });
-        consoleButton.setOnAction(e -> {
-            if (selectedFunction != null) {
-                selectedFunction.toggleConsole();
-                updateToolbar();
-            }
-        });
-        clearButton.setOnAction(e -> {
-            if (selectedFunction != null) {
-                selectedFunction.clearConsole();
-            }
-        });
-        doneButton.setOnAction(e -> {
-            if (selectedFunction != null) {
-                selectedFunction.clearResult();
-                updateToolbar();
-            }
-        });
+        resetButton.setOnAction(e -> runReset());
+        consoleButton.setOnAction(e -> runConsoleButton());
+        clearButton.setOnAction(e -> runClearConsoleButton());
+        doneButton.setOnAction(e -> runDoneButton());
         exportButton.setOnAction(e -> exportTable());
 
         BorderPane centerArea = new BorderPane();
@@ -225,6 +279,7 @@ public class FunctionScreen extends Screen {
             for (DatabaseFunctionInfo info : infos) {
                 String display = screenConfig.getDisplayNameForFunction(info.getName());
                 DatabaseFunction function = new DatabaseFunction(
+                        app,
                         info,
                         app.getDatabaseManager(),
                         display,
@@ -402,6 +457,32 @@ public class FunctionScreen extends Screen {
         updateToolbar();
     }
 
+    private void runReset(){
+        if (selectedFunction != null) {
+            selectedFunction.resetArguments();
+        }
+    }
+
+    private void runConsoleButton(){
+        if (selectedFunction != null) {
+            selectedFunction.toggleConsole();
+            updateToolbar();
+        }
+    }
+
+    private void runClearConsoleButton(){
+        if (selectedFunction != null) {
+            selectedFunction.clearConsole();
+        }
+    }
+
+    private void runDoneButton(){
+        if (selectedFunction != null) {
+            selectedFunction.clearResult();
+            updateToolbar();
+        }
+    }
+
     private void exportTable() {
         if (selectedFunction == null || !selectedFunction.isTableResult()) {
             return;
@@ -414,5 +495,44 @@ public class FunctionScreen extends Screen {
         } catch (Exception e) {
             app.showError("Export failed");
         }
+    }
+
+
+
+    private void switchFunction(int offset) {
+        if (functionButtonsBox.getChildren().isEmpty()) return;
+
+        int currentIndex = functionButtonsBox.getChildren().indexOf(selectedListButton);
+        if (currentIndex == -1) currentIndex = 0;
+
+        int newIndex = (currentIndex + offset) % functionButtonsBox.getChildren().size();
+        if (newIndex < 0) {
+            newIndex += functionButtonsBox.getChildren().size();
+        }
+
+        if (functionButtonsBox.getChildren().get(newIndex) instanceof Button btn) {
+            btn.fire();
+        }
+    }
+
+    private void switchScreen(int offset) {
+        List<ScreenConfig> screens = app.getConfig().getScreens();
+        if (screens == null || screens.isEmpty()) return;
+
+        int currentIndex = -1;
+        for (int i = 0; i < screens.size(); i++) {
+            if (screens.get(i).getPrefix().equals(this.screenConfig.getPrefix())) {
+                currentIndex = i;
+                break;
+            }
+        }
+        if (currentIndex == -1) return;
+
+        int newIndex = (currentIndex + offset) % screens.size();
+        if (newIndex < 0) {
+            newIndex += screens.size();
+        }
+
+        app.showFunctionScreen(screens.get(newIndex).getPrefix());
     }
 }

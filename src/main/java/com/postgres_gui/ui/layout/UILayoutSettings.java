@@ -45,6 +45,7 @@ public final class UILayoutSettings {
     public static final double FUNCTION_LIST_BUTTON_CORNER_RADIUS = 18;
     public static final double FUNCTION_LIST_PANEL_MIN_WIDTH = 200;
     public static final double FUNCTION_LIST_PANEL_WIDTH_FACTOR = 8.5;
+    public static final double FUNCTION_COLOR_SCREEN_BUTTON_SELECTED_DARKEN = 0.6;
 
     // --- Экран функций: факторы цвета от базового (ColorUtils) ---
     public static final double FUNCTION_COLOR_LIST_PANEL_LIGHTEN = 0.25;

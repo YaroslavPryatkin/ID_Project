@@ -17,7 +17,8 @@ public record FunctionScreenPalette(
         Color toolbarButton,
         Color toolbarButtonHover,
         Color screenTitlePlate,
-        Color panelBorder
+        Color panelBorder,
+        Color screenButtonSelected
 ) {
     public static FunctionScreenPalette fromBase(Color baseColor) {
         Color listPanel = ColorUtils.lighten(baseColor, UILayoutSettings.FUNCTION_COLOR_LIST_PANEL_LIGHTEN);
@@ -35,9 +36,12 @@ public record FunctionScreenPalette(
                 toolbarBtn,
                 ColorUtils.darken(toolbarBtn, UILayoutSettings.FUNCTION_COLOR_TOOLBAR_BUTTON_HOVER_DARKEN),
                 ColorUtils.darken(baseColor, UILayoutSettings.FUNCTION_COLOR_SCREEN_TITLE_DARKEN),
-                ColorUtils.darken(baseColor, UILayoutSettings.FUNCTION_COLOR_PANEL_BORDER_DARKEN)
+                ColorUtils.darken(baseColor, UILayoutSettings.FUNCTION_COLOR_PANEL_BORDER_DARKEN),
+                ColorUtils.darken(baseColor, UILayoutSettings.FUNCTION_COLOR_SCREEN_BUTTON_SELECTED_DARKEN)
         );
     }
+
+    public String screenButtonSelectedHex() {return toHex(screenButtonSelected);}
 
     public String baseHex() {
         return toHex(base);
